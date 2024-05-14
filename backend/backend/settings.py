@@ -154,17 +154,15 @@ REST_FRAMEWORK = {
 }
 
 DJOSER = {
-    'DISABLED_ENDPOINTS': [
-        'users/set_username',
-    ],
-    'USER_CREATE_PASSWORD_RETYPE': False,
     'PERMISSIONS': {
         'user': ['rest_framework.permissions.AllowAny'],
         'user_list': ['rest_framework.permissions.AllowAny'],
+        'me': ['api.permissions.IsCurrentUser'],
     },
     'HIDE_USERS': False,
     'SERIALIZERS': {
         'user': 'api.serializers.UserSerializer',
         'current_user': 'api.serializers.UserSerializer',
+        'avatar': 'api.serializers.AvatarSerializer',
     }
 }

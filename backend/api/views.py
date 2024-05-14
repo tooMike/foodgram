@@ -32,6 +32,10 @@ class UserViewSet(viewsets.ModelViewSet):
             self.permission_classes = settings.PERMISSIONS.set_password
         elif self.action == "list":
             self.permission_classes = settings.PERMISSIONS.user_list
+        elif self.action == "me":
+            self.permission_classes = settings.PERMISSIONS.me
+        elif self.action == "avatar":
+            self.permission_classes = settings.PERMISSIONS.me
         return super().get_permissions()
 
     def get_serializer_class(self):
@@ -41,6 +45,8 @@ class UserViewSet(viewsets.ModelViewSet):
             return settings.SERIALIZERS.set_password
         elif self.action == "me":
             return settings.SERIALIZERS.current_user
+        elif self.action == "avatar":
+            return settings.SERIALIZERS.avatar
 
         return self.serializer_class
 
@@ -57,7 +63,7 @@ class UserViewSet(viewsets.ModelViewSet):
         user = self.get_instance()
         # Если метод PATCH, то добавляем аватар
         if request.method == "PATCH":
-            serializer = AvatarSerializer(
+            serializer = self.get_serializer(
                 user, data=request.data, partial=True
             )
             serializer.is_valid(raise_exception=True)
