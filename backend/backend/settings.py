@@ -154,6 +154,9 @@ REST_FRAMEWORK = {
 }
 
 DJOSER = {
+    'DISABLED_ENDPOINTS': [
+        'users/set_username',
+    ],
     'USER_CREATE_PASSWORD_RETYPE': False,
     'PERMISSIONS': {
         'user': ['rest_framework.permissions.AllowAny'],

@@ -24,3 +24,6 @@ class FoodgramUser(AbstractUser):
 
     def get_absolute_url(self):
         return reverse("users:profile")
+    
+    class Meta:
+        ordering = ('id',)
