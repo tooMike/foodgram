@@ -16,12 +16,30 @@ class Ingredient(models.Model):
         "Единицы измерения", choices=MeasurementUnit.choices, max_length=10
     )
 
+    class Meta:
+        verbose_name = "ингридиент"
+        verbose_name_plural = "Ингридиенты"
+        default_related_name = "ingredients"
+        ordering = ("name",)
+
+    def __str__(self):
+        return self.name
+
 
 class Tag(models.Model):
     """Модель тегов."""
 
     name = models.CharField("Название", max_length=TAG_NAME_MAX_LENGHT)
     slug = models.SlugField("Slug")
+
+    class Meta:
+        verbose_name = "тег"
+        verbose_name_plural = "Теги"
+        default_related_name = "tags"
+        ordering = ("name",)
+
+    def __str__(self):
+        return self.name
 
 
 class Recipe(models.Model):
@@ -41,17 +59,51 @@ class Recipe(models.Model):
     )
     ingredients = models.ManyToManyField(
         Ingredient,
+        through='RecipeIngredient',
         verbose_name="Ингридиенты",
         related_name="ingredients_recipes"
     )
-    tags = models.ManyToManyField(Tag, verbose_name="Теги")
+    tags = models.ManyToManyField(
+        Tag,
+        through='RecipeTag',
+        verbose_name="Теги",
+        related_name="tags_recipes"
+    )
     favorites = models.ManyToManyField(
         User,
         verbose_name="Избранные рецепты",
-        related_name="favorites_recipes"
+        related_name="favorites_recipes",
+        blank=True
     )
     shopping_list = models.ManyToManyField(
         User,
         verbose_name="Список покупок",
-        related_name="shopping_list_recipes"
+        related_name="shopping_list_recipes",
+        blank=True
     )
+
+    class Meta:
+        verbose_name = "рецепт"
+        verbose_name_plural = "Рецепты"
+        default_related_name = "recipes"
+        ordering = ("name",)
+
+    def __str__(self):
+        return self.name
+    
+
+class RecipeTag(models.Model):
+    recipe = models.ForeignKey(Recipe, verbose_name="Рецепт", on_delete=models.CASCADE)
+    tag = models.ForeignKey(Tag, verbose_name="Тег", on_delete=models.CASCADE)
+
+    class Meta:
+        default_related_name = "recipetag"
+
+
+class RecipeIngredient(models.Model):
+    recipe = models.ForeignKey(Recipe, verbose_name="Рецепт", on_delete=models.CASCADE)
+    ingredient = models.ForeignKey(Ingredient, verbose_name="Ингридиент", on_delete=models.CASCADE)
+    amount = models.PositiveSmallIntegerField("Количество", validators=(MinValueValidator(1),))
+
+    class Meta:
+        default_related_name = "recipeingredient"

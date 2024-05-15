@@ -1,17 +1,16 @@
 from django.contrib.auth import get_user_model
-from django.shortcuts import render
 from djoser.conf import settings
-from rest_framework import filters, mixins, status, viewsets
+from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.permissions import AllowAny, IsAuthenticated
-from rest_framework.viewsets import GenericViewSet
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
-from api.serializers import AvatarSerializer, IngredientSerialiser
-from recipes.models import Ingredient
+from api.pagination import RecipePagination, UsersPagination
+from api.serializers import (IngredientSerialiser, RecipeGetSerialiser,
+                             RecipePostSerialiser, TagSerialiser)
+from recipes.models import Ingredient, Recipe, Tag
 
 User = get_user_model()
-
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -24,6 +23,7 @@ class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     permission_classes = settings.PERMISSIONS.user
     lookup_field = settings.USER_ID_FIELD
+    pagination_class = UsersPagination
 
     def get_permissions(self):
         if self.action == "create":
@@ -90,3 +90,36 @@ class IngredientViewSet(viewsets.ModelViewSet):
     queryset = Ingredient.objects.all()
     serializer_class = IngredientSerialiser
     http_method_names = ('get',)
+    permission_classes = (AllowAny,)
+
+
+class TagViewSet(viewsets.ModelViewSet):
+    """Представление для получения тегов."""
+
+    queryset = Tag.objects.all()
+    serializer_class = TagSerialiser
+    http_method_names = ('get',)
+    permission_classes = (AllowAny,)
+
+
+class RecipeViewSet(viewsets.ModelViewSet):
+    """Представление для получения рецептов."""
+
+    queryset = Recipe.objects.all()
+    serializer_class = RecipeGetSerialiser
+    http_method_names = ('get', 'post', 'patch', 'delete')
+    permission_classes = (AllowAny,)
+    pagination_class = RecipePagination
+
+    def get_serializer_class(self):
+        if self.request.method == 'POST':
+            return RecipePostSerialiser
+        return super().get_serializer_class()
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        recipe = serializer.save(author=self.request.user)
+        headers = self.get_success_headers(serializer.data)
+        response_serializer = RecipeGetSerialiser(recipe)
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED, headers=headers)
