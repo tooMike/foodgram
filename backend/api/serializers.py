@@ -86,7 +86,6 @@ class RecipeIngredientPostSerialiser(serializers.ModelSerializer):
 
     id = serializers.PrimaryKeyRelatedField(
         queryset = Ingredient.objects.all(),
-        read_only=False
     )
 
     class Meta():
@@ -98,10 +97,13 @@ class RecipePostSerialiser(serializers.ModelSerializer):
     """Сериализатор для добавления рецептов."""
 
     image = Base64ImageField()
-    ingredients = RecipeIngredientPostSerialiser(many=True, read_only=False, source='recipeingredient')
-    tags = serializers.PrimaryKeyRelatedField(
+    ingredients = RecipeIngredientPostSerialiser(
         many=True,
-        queryset=Tag.objects.all()
+        source='recipeingredient'
+    )
+    tags = serializers.PrimaryKeyRelatedField(
+        queryset=Tag.objects.all(),
+        many=True
     )
 
     class Meta:
@@ -115,11 +117,26 @@ class RecipePostSerialiser(serializers.ModelSerializer):
         recipe = Recipe.objects.create(**validated_data)
 
         for tag in tags:
-            # current_tag = get_object_or_404(Tag, id=tag)
             RecipeTag.objects.create(tag=tag, recipe=recipe)
 
         for ingredient in ingredients:
             RecipeIngredient.objects.create(ingredient=ingredient['id'], amount=ingredient['amount'], recipe=recipe)
-
-
+        
         return recipe
+    
+    def update(self, instance, validated_data):
+        ingredients = validated_data.pop('recipeingredient')
+        tags = validated_data.pop('tags')
+
+        RecipeTag.objects.filter(recipe=instance).delete()
+        for tag in tags:
+            instance.recipetag.create(tag=tag, recipe=instance)
+
+        RecipeIngredient.objects.filter(recipe=instance).delete()
+        for ingredient in ingredients:
+            instance.recipeingredient.create(ingredient=ingredient['id'], amount=ingredient['amount'], recipe=instance)
+
+        instance.save()
+        return instance
+    
+    

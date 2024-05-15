@@ -2,13 +2,14 @@ from django.contrib.auth import get_user_model
 from djoser.conf import settings
 from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
 from api.pagination import RecipePagination, UsersPagination
 from api.serializers import (IngredientSerialiser, RecipeGetSerialiser,
                              RecipePostSerialiser, TagSerialiser)
 from recipes.models import Ingredient, Recipe, Tag
+from api.permissions import IsAuthor
 
 User = get_user_model()
 
@@ -103,23 +104,40 @@ class TagViewSet(viewsets.ModelViewSet):
 
 
 class RecipeViewSet(viewsets.ModelViewSet):
-    """Представление для получения рецептов."""
+    """Представление для рецептов."""
 
     queryset = Recipe.objects.all()
     serializer_class = RecipeGetSerialiser
     http_method_names = ('get', 'post', 'patch', 'delete')
-    permission_classes = (AllowAny,)
     pagination_class = RecipePagination
 
     def get_serializer_class(self):
-        if self.request.method == 'POST':
+        if self.action == 'create' or self.action == 'partial_update':
             return RecipePostSerialiser
         return super().get_serializer_class()
+
+    def get_permissions(self):
+        if self.action == 'create':
+            permission_classes = (IsAuthenticated,)
+        elif self.action == 'partial_update':
+            permission_classes = (IsAuthor,)
+        else:
+            permission_classes = (AllowAny,)
+        return [permission() for permission in permission_classes]
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         recipe = serializer.save(author=self.request.user)
+        headers = self.get_success_headers(serializer.data)
+        response_serializer = RecipeGetSerialiser(recipe)
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+    
+    def partial_update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        recipe = serializer.save()
         headers = self.get_success_headers(serializer.data)
         response_serializer = RecipeGetSerialiser(recipe)
         return Response(response_serializer.data, status=status.HTTP_201_CREATED, headers=headers)
