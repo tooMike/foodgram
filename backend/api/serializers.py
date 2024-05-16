@@ -1,12 +1,34 @@
-from django.contrib.auth import get_user_model
+from django.contrib.auth import authenticate, get_user_model
+from django.contrib.auth.hashers import make_password
+from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404
 from drf_extra_fields.fields import Base64ImageField
 from rest_framework import serializers
 
-from recipes.models import Ingredient, Recipe, RecipeIngredient, Tag, RecipeTag
+from recipes.models import Ingredient, Recipe, RecipeIngredient, RecipeTag, Tag
 from users.constants import PASSWORD_MAX_LENGTH
 
 User = get_user_model()
+
+
+class UserRegistrationSerializer(serializers.ModelSerializer):
+    """Сериализатор для регистрации пользователей."""
+
+    class Meta:
+        model = User
+        fields = ('email', 'id', 'username',
+                  'first_name', 'last_name', 'password')
+        extra_kwargs = {
+            'password': {'write_only': True}
+        }
+
+    def create(self, validated_data):
+        """
+        Сохраняем пользователя через create_user,
+        чтобы пароль в БД записал в зашифрованном виде.
+        """
+        user = User.objects.create_user(**validated_data)
+        return user
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -127,11 +149,13 @@ class RecipePostSerialiser(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         ingredients = validated_data.pop('recipeingredient')
         tags = validated_data.pop('tags')
-
+        
+        # Удаляем и перезаписывам теги
         RecipeTag.objects.filter(recipe=instance).delete()
         for tag in tags:
             instance.recipetag.create(tag=tag, recipe=instance)
-
+        
+        # Удаляем и перезаписывам ингредиенты
         RecipeIngredient.objects.filter(recipe=instance).delete()
         for ingredient in ingredients:
             instance.recipeingredient.create(ingredient=ingredient['id'], amount=ingredient['amount'], recipe=instance)
