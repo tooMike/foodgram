@@ -69,18 +69,6 @@ class Recipe(models.Model):
         verbose_name="Теги",
         related_name="tags_recipes"
     )
-    favorites = models.ManyToManyField(
-        User,
-        verbose_name="Избранные рецепты",
-        related_name="favorites_recipes",
-        blank=True
-    )
-    shopping_list = models.ManyToManyField(
-        User,
-        verbose_name="Список покупок",
-        related_name="shopping_list_recipes",
-        blank=True
-    )
 
     class Meta:
         verbose_name = "рецепт"

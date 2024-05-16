@@ -1,5 +1,4 @@
 from django.contrib.auth import authenticate, get_user_model
-from django.contrib.auth.hashers import make_password
 from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404
 from drf_extra_fields.fields import Base64ImageField
@@ -34,20 +33,30 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 class UserSerializer(serializers.ModelSerializer):
     """Сериализатор для пользователей."""
 
+    is_subscribed = serializers.SerializerMethodField()
+
     class Meta:
         model = User
         fields = ('email', 'id', 'username',
-                  'first_name', 'last_name', 'avatar')
+                  'first_name', 'last_name', 'avatar', 'is_subscribed')
+
+    def get_is_subscribed(self, obj):
+        return False
 
 
 class AvatarSerializer(serializers.ModelSerializer):
     """Сериализатор для аватаров."""
 
-    avatar = Base64ImageField()
+    avatar = Base64ImageField(required=True)
 
     class Meta:
         model = User
         fields = ('avatar',)
+
+    def validate_avatar(self, value):
+        if value is None:
+            raise ValidationError('Передано пустое поле avatar')
+        return value
 
 
 class IngredientSerialiser(serializers.ModelSerializer):

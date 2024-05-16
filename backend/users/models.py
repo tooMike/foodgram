@@ -20,6 +20,19 @@ class FoodgramUser(AbstractUser):
         related_name='user',
         symmetrical=False
     )
+    favorites = models.ManyToManyField(
+        'recipes.Recipe',
+        verbose_name="Избранные рецепты",
+        related_name="user_favorites_recipes",
+        blank=True
+    )
+    shopping_list = models.ManyToManyField(
+        'recipes.Recipe',
+        verbose_name="Список покупок",
+        related_name="user_shopping_list_recipes",
+        blank=True
+    )
+
     REQUIRED_FIELDS = ('first_name', 'last_name', 'email')
 
     def get_absolute_url(self):

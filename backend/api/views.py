@@ -6,10 +6,10 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
 from api.pagination import RecipePagination, UsersPagination
+from api.permissions import IsAuthor
 from api.serializers import (IngredientSerialiser, RecipeGetSerialiser,
                              RecipePostSerialiser, TagSerialiser)
 from recipes.models import Ingredient, Recipe, Tag
-from api.permissions import IsAuthor
 
 User = get_user_model()
 
@@ -59,13 +59,17 @@ class UserViewSet(viewsets.ModelViewSet):
         self.get_object = self.get_instance
         return self.retrieve(request, *args, **kwargs)
 
-    @action(["patch", "delete"], detail=False, url_path='me/avatar')
+    @action(["patch", "delete", "put"], detail=False, url_path='me/avatar')
     def avatar(self, request):
         user = self.get_instance()
         # Если метод PATCH, то добавляем аватар
-        if request.method == "PATCH":
+        # if request.method == "PATCH":
+        if request.method == "PUT":
+            # serializer = self.get_serializer(
+            #     user, data=request.data, partial=True
+            # )
             serializer = self.get_serializer(
-                user, data=request.data, partial=True
+                user, data=request.data
             )
             serializer.is_valid(raise_exception=True)
             serializer.save()
