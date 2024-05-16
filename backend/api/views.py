@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.shortcuts import get_object_or_404
 from djoser.conf import settings
 from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
@@ -8,7 +9,8 @@ from rest_framework.response import Response
 from api.pagination import RecipePagination, UsersPagination
 from api.permissions import IsAuthor
 from api.serializers import (IngredientSerialiser, RecipeGetSerialiser,
-                             RecipePostSerialiser, TagSerialiser)
+                             RecipePostSerialiser, SubscriptionsSerializer,
+                             TagSerialiser)
 from recipes.models import Ingredient, Recipe, Tag
 
 User = get_user_model()
@@ -65,9 +67,6 @@ class UserViewSet(viewsets.ModelViewSet):
         # Если метод PATCH, то добавляем аватар
         # if request.method == "PATCH":
         if request.method == "PUT":
-            # serializer = self.get_serializer(
-            #     user, data=request.data, partial=True
-            # )
             serializer = self.get_serializer(
                 user, data=request.data
             )
@@ -87,6 +86,68 @@ class UserViewSet(viewsets.ModelViewSet):
         self.request.user.save()
 
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(
+        ["post", "delete"],
+        detail=True,
+        permission_classes=(IsAuthenticated,)
+    )
+    def subscribe(self, request, id=None):
+        """
+        Подписываем или удаляем подписку текущего пользователя
+        на другого пользователя.
+        """
+        user = self.get_instance()
+        followee = get_object_or_404(User, pk=id)
+        if followee == user:
+            return Response(
+                {"errors": 'Подписка/отписка на самого себя невозможна'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        if request.method == "POST":
+            if user.subscriptions.filter(id=followee.id).exists():
+                return Response(
+                    {"errors": "Вы уже подписаны на этого пользователя"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            user.subscriptions.add(followee)
+            serializer = SubscriptionsSerializer(
+                followee,
+                context={'request': request}
+            )
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        if request.method == "DELETE":
+            if user.subscriptions.filter(id=followee.id).exists():
+                user.subscriptions.remove(followee)
+                return Response(status=status.HTTP_204_NO_CONTENT)
+            return Response(
+                {"errors": "Вы не были подписаны на этого пользователя"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    @action(["get"], permission_classes=(IsAuthenticated,), detail=False)
+    def subscriptions(self, request):
+        """Получаем список подписок текущего пользователя."""
+        user = self.get_instance()
+        subscriptions = user.subscriptions.all()
+
+        # Добавляем пагинацию
+        paginator = UsersPagination()
+        page = paginator.paginate_queryset(subscriptions, request)
+        if page is not None:
+            serializer = SubscriptionsSerializer(
+                page,
+                many=True,
+                context={'request': request}
+            )
+            return paginator.get_paginated_response(serializer.data)
+        
+        serializer = SubscriptionsSerializer(
+            subscriptions,
+            many=True,
+            context={'request': request}
+        )
+        return Response(serializer.data)
 
 
 class IngredientViewSet(viewsets.ModelViewSet):

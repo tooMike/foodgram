@@ -35,13 +35,25 @@ class UserSerializer(serializers.ModelSerializer):
 
     is_subscribed = serializers.SerializerMethodField()
 
+    def get_is_subscribed(self, obj):
+        """
+        Проверяем, подписан ли текущий пользователь
+        на сериализуемого пользователя
+        """
+        # Получаем текущего пользователя
+        user = self.context.get("request").user
+        # Для анонимных пользователей всегда возвращаем False
+        if user.is_anonymous:
+            return False
+        # Проверяем, что в подписках текущего пользователя
+        # есть запрашиваемый пользователь
+        return user.subscriptions.filter(id=obj.id).exists()
+
+
     class Meta:
         model = User
         fields = ('email', 'id', 'username',
                   'first_name', 'last_name', 'avatar', 'is_subscribed')
-
-    def get_is_subscribed(self, obj):
-        return False
 
 
 class AvatarSerializer(serializers.ModelSerializer):
@@ -171,5 +183,55 @@ class RecipePostSerialiser(serializers.ModelSerializer):
 
         instance.save()
         return instance
+    
+
+class SubscriptionsRecipeSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Recipe
+        fields = ('id', 'name', 'image', 'cooking_time')
+
+
+class SubscriptionsSerializer(UserSerializer):
+    """
+    Сериализатор для получение информации о пользователе,
+    на которого текущий пользователь подписался.
+    """
+
+    recipes = serializers.SerializerMethodField()
+    recipes_count = serializers.SerializerMethodField()
+
+    def get_recipes(self, obj):
+        """Получаем рецепты пользователя."""
+        # Получаем ограничение на количество рецептов из запроса
+        recipes_limit = self.context.get("request").query_params.get("recipes_limit", None)
+        # Получаем нужное количество рецептов
+        if recipes_limit:
+            try:
+                recipes_limit = int(recipes_limit)
+                if recipes_limit < 1:
+                    raise serializers.ValidationError(
+                        "Значение recipes_limit должно быть положительным числом"
+                    )
+                recipes = obj.author_recipes.all()[:recipes_limit]
+            except ValueError:
+                raise serializers.ValidationError(
+                    "Значение recipes_limit не является числом"
+                )
+        else:
+            recipes = obj.author_recipes.all()
+        serializer = SubscriptionsRecipeSerializer(recipes, many=True)
+        return serializer.data
+
+    def get_recipes_count(self, obj):
+        """Получаем количество рецептов пользователя."""
+        return obj.author_recipes.count()
+
+    class Meta:
+        model = User
+        fields = ('email', 'id', 'username', 'first_name', 'last_name',
+                  'avatar', 'is_subscribed', 'recipes', 'recipes_count')
+
+
     
     

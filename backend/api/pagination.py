@@ -1,4 +1,3 @@
-from rest_framework.pagination import PageNumberPagination
 from rest_framework.pagination import LimitOffsetPagination
 
 
@@ -7,6 +6,6 @@ class UsersPagination(LimitOffsetPagination):
     default_limit = 10
 
 
-class RecipePagination(PageNumberPagination):
-    """Пагинация для списка пользователей."""
+class RecipePagination(LimitOffsetPagination):
+    """Пагинация для списка рецептов."""
     page_size = 10
