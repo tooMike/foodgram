@@ -1,16 +1,20 @@
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
+from django_filters.rest_framework import DjangoFilterBackend
 from djoser.conf import settings
+from djoser.serializers import SetPasswordSerializer
 from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
+from api.filters import IngredientSearchFilter, RecipeFilter
 from api.pagination import RecipePagination, UsersPagination
-from api.permissions import IsAuthor
-from api.serializers import (IngredientSerialiser, RecipeGetSerialiser,
-                             RecipePostSerialiser, SubscriptionsSerializer,
-                             TagSerialiser)
+from api.permissions import IsAuthor, IsCurrentUser
+from api.serializers import (AvatarSerializer, IngredientSerialiser,
+                             RecipeGetSerialiser, RecipePostSerialiser,
+                             SubscriptionsSerializer, TagSerialiser,
+                             UserRegistrationSerializer, UserSerializer, RecipeFavoriteGetSerialiser)
 from recipes.models import Ingredient, Recipe, Tag
 
 User = get_user_model()
@@ -22,35 +26,26 @@ class UserViewSet(viewsets.ModelViewSet):
     чтобы оставить только нужный функционал
     """
 
-    serializer_class = settings.SERIALIZERS.user
+    serializer_class = UserSerializer
     queryset = User.objects.all()
-    permission_classes = settings.PERMISSIONS.user
+    permission_classes = (AllowAny,)
     lookup_field = settings.USER_ID_FIELD
     pagination_class = UsersPagination
 
     def get_permissions(self):
-        if self.action == "create":
-            self.permission_classes = settings.PERMISSIONS.user_create
-        elif self.action == "set_password":
-            self.permission_classes = settings.PERMISSIONS.set_password
-        elif self.action == "list":
-            self.permission_classes = settings.PERMISSIONS.user_list
-        elif self.action == "me":
-            self.permission_classes = settings.PERMISSIONS.me
-        elif self.action == "avatar":
-            self.permission_classes = settings.PERMISSIONS.me
+        if self.action == "set_password":
+            return (IsAuthenticated(),)
+        elif self.action == "me" or self.action == "avatar":
+            return (IsCurrentUser(),)
         return super().get_permissions()
 
     def get_serializer_class(self):
         if self.action == "create":
-            return settings.SERIALIZERS.user_create
+            return UserRegistrationSerializer
         elif self.action == "set_password":
-            return settings.SERIALIZERS.set_password
-        elif self.action == "me":
-            return settings.SERIALIZERS.current_user
+            return SetPasswordSerializer
         elif self.action == "avatar":
-            return settings.SERIALIZERS.avatar
-
+            return AvatarSerializer
         return self.serializer_class
 
     def get_instance(self):
@@ -68,7 +63,9 @@ class UserViewSet(viewsets.ModelViewSet):
         # if request.method == "PATCH":
         if request.method == "PUT":
             serializer = self.get_serializer(
-                user, data=request.data
+                user,
+                data=request.data,
+                context={'request': request}
             )
             serializer.is_valid(raise_exception=True)
             serializer.save()
@@ -157,6 +154,8 @@ class IngredientViewSet(viewsets.ModelViewSet):
     serializer_class = IngredientSerialiser
     http_method_names = ('get',)
     permission_classes = (AllowAny,)
+    filter_backends = (IngredientSearchFilter,)
+    search_fields = ('name',)
 
 
 class TagViewSet(viewsets.ModelViewSet):
@@ -175,6 +174,9 @@ class RecipeViewSet(viewsets.ModelViewSet):
     serializer_class = RecipeGetSerialiser
     http_method_names = ('get', 'post', 'patch', 'delete')
     pagination_class = RecipePagination
+    filter_backends = (DjangoFilterBackend,)
+    filterset_class = RecipeFilter
+    permission_classes = (AllowAny,)
 
     def get_serializer_class(self):
         if self.action == 'create' or self.action == 'partial_update':
@@ -183,26 +185,50 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action == 'create':
-            permission_classes = (IsAuthenticated,)
+            return (IsAuthenticated(),)
         elif self.action == 'partial_update' or self.action == 'delete':
-            permission_classes = (IsAuthor,)
-        else:
-            permission_classes = (AllowAny,)
-        return [permission() for permission in permission_classes]
+            return (IsAuthor(),)
+        return super().get_permissions()
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         recipe = serializer.save(author=self.request.user)
         headers = self.get_success_headers(serializer.data)
-        response_serializer = RecipeGetSerialiser(recipe)
+        response_serializer = RecipeGetSerialiser(recipe, context={'request': request})
         return Response(response_serializer.data, status=status.HTTP_201_CREATED, headers=headers)
     
     def partial_update(self, request, *args, **kwargs):
         instance = self.get_object()
-        serializer = self.get_serializer(instance, data=request.data, partial=True)
+        serializer = self.get_serializer(instance, data=request.data)
         serializer.is_valid(raise_exception=True)
         recipe = serializer.save()
         headers = self.get_success_headers(serializer.data)
-        response_serializer = RecipeGetSerialiser(recipe)
-        return Response(response_serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        response_serializer = RecipeGetSerialiser(recipe, context={'request': request})
+        return Response(response_serializer.data, status=status.HTTP_200_OK, headers=headers)
+    
+    @action(["get"], detail=True, url_path='get-link')
+    def get_link(self, request, pk=None):
+        """Получаем короткую ссылку на рецепт."""
+        return Response({"short-link": "https://foodgram.example.org/s/3d0"}, status=status.HTTP_200_OK)
+
+    @action(["post"], detail=True, permission_classes=(IsAuthenticated,))
+    def favorite(self, request, pk=None):
+        """Добавляем рецепт в избранное."""
+        # Проверяем, существует ли такой рецепт
+        if not Recipe.objects.filter(pk=pk).first():
+            return Response(
+                {"errors": "Такого рецепта не существует"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        recipe = Recipe.objects.get(pk=pk)
+        user = request.user
+        # Проверяем, если ли такой рецепт уже в избранном
+        if user.favorites.filter(id=pk):
+            return Response(
+                {"errors": "Этот рецепт уже есть в избранном"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        recipe.user_favorites_recipes.add(user)
+        serializer = RecipeFavoriteGetSerialiser(recipe)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)

@@ -116,9 +116,29 @@ class RecipeGetSerialiser(serializers.ModelSerializer):
     tags = TagSerialiser(many=True)
     ingredients = RecipeIngredientGetSerializer(many=True, source='recipeingredient')
 
+    is_favorited = serializers.SerializerMethodField()
+    is_in_shopping_cart = serializers.SerializerMethodField()
+
+    def get_is_favorited(self, obj):
+        return True
+
+    def get_is_in_shopping_cart(self, obj):
+        return True
+    
     class Meta:
         model = Recipe
-        fields = ('id', 'tags', 'author', 'ingredients', 'name', 'image', 'text', 'cooking_time')
+        fields = ('id', 'tags', 'author', 'ingredients', 'name', 'image',
+                  'text', 'cooking_time', 'is_favorited', 'is_in_shopping_cart')
+
+
+class RecipeFavoriteGetSerialiser(serializers.ModelSerializer):
+    """Сериализатор для получения рецептов при добавлении в избранное."""
+
+    image = Base64ImageField()
+    
+    class Meta:
+        model = Recipe
+        fields = ('id', 'name', 'image', 'cooking_time')
 
 
 class RecipeIngredientPostSerialiser(serializers.ModelSerializer):
@@ -130,6 +150,12 @@ class RecipeIngredientPostSerialiser(serializers.ModelSerializer):
     id = serializers.PrimaryKeyRelatedField(
         queryset = Ingredient.objects.all(),
     )
+
+    # def validate_id(self, value):
+    #     if not value:
+    #         raise serializers.ValidationError(
+    #             "Картирка обязетельно должна быть"
+    #         )
 
     class Meta():
         model = RecipeIngredient
@@ -153,11 +179,39 @@ class RecipePostSerialiser(serializers.ModelSerializer):
         model = Recipe
         fields = ('ingredients', 'tags', 'image',
                   'name', 'text', 'cooking_time')
+        
+    def validate_image(self, value):
+        if value in [None, '']:
+            raise serializers.ValidationError("Картинка обязательно должна быть добавлена")
+        return value
+    
+    def validate_tags(self, value):
+        """Проверка, что список тегов не пуст."""
+        if not value:
+            raise serializers.ValidationError("Необходимо указать хотя бы один тег.")
+        if len(value) != len(set(value)):
+            raise serializers.ValidationError("Теги не должны повторяться.")
+        return value
+    
+    def validate_ingredients(self, value):
+        """Проверка, что список ингредиентов не пуст."""
+        if not value:
+            raise serializers.ValidationError(
+                "Необходимо указать хотя бы один ингредиент."
+            )
+        for item in value:
+            for second_item in value[value.index(item) + 1:]:
+                if item["id"] == second_item["id"]:
+                    raise serializers.ValidationError(
+                        "Ингредиенты не должны повторяться."
+                    )
+        return value
 
     def create(self, validated_data):
         ingredients = validated_data.pop('recipeingredient')
         tags = validated_data.pop('tags')
-        recipe = Recipe.objects.create(**validated_data)
+        image = validated_data.pop('image', None)
+        recipe = Recipe.objects.create(**validated_data, image=image)
 
         for tag in tags:
             RecipeTag.objects.create(tag=tag, recipe=recipe)
@@ -204,14 +258,16 @@ class SubscriptionsSerializer(UserSerializer):
     def get_recipes(self, obj):
         """Получаем рецепты пользователя."""
         # Получаем ограничение на количество рецептов из запроса
-        recipes_limit = self.context.get("request").query_params.get("recipes_limit", None)
+        recipes_limit = self.context.get(
+            "request"
+        ).query_params.get("recipes_limit", None)
         # Получаем нужное количество рецептов
         if recipes_limit:
             try:
                 recipes_limit = int(recipes_limit)
                 if recipes_limit < 1:
                     raise serializers.ValidationError(
-                        "Значение recipes_limit должно быть положительным числом"
+                        "Значение recipes_limit должно быть > 0"
                     )
                 recipes = obj.author_recipes.all()[:recipes_limit]
             except ValueError:

@@ -8,4 +8,4 @@ class UsersPagination(LimitOffsetPagination):
 
 class RecipePagination(LimitOffsetPagination):
     """Пагинация для списка рецептов."""
-    page_size = 10
+    default_limit = 10
