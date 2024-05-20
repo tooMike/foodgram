@@ -1,6 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.core.validators import MinValueValidator
 from django.db import models
+from django.urls import reverse
 
 from recipes.constants import (NAME_MAX_LENGHT, TAG_NAME_MAX_LENGHT,
                                MeasurementUnit)
@@ -78,6 +79,9 @@ class Recipe(models.Model):
 
     def __str__(self):
         return self.name
+    
+    def get_absolute_url(self):
+        return reverse("api:recipes-detail", kwargs={"pk": self.pk})
     
 
 class RecipeTag(models.Model):

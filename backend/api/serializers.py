@@ -120,11 +120,25 @@ class RecipeGetSerialiser(serializers.ModelSerializer):
     is_in_shopping_cart = serializers.SerializerMethodField()
 
     def get_is_favorited(self, obj):
-        return True
+        """Проверяем, есть ли рецепт в избранном пользователя."""
+        user = self.context.get("request").user
+        # Проверяем, аутентифицирован ли пользователь
+        if not user.is_authenticated:
+            return False
+        if user.favorites.filter(id=obj.id):
+            return True
+        return False
 
     def get_is_in_shopping_cart(self, obj):
-        return True
-    
+        """Проверяем, есть ли рецепт в списке покупок пользователя."""
+        user = self.context.get("request").user
+        # Проверяем, аутентифицирован ли пользователь
+        if not user.is_authenticated:
+            return False
+        if user.shopping_list.filter(id=obj.id):
+            return True
+        return False
+
     class Meta:
         model = Recipe
         fields = ('id', 'tags', 'author', 'ingredients', 'name', 'image',
@@ -150,12 +164,6 @@ class RecipeIngredientPostSerialiser(serializers.ModelSerializer):
     id = serializers.PrimaryKeyRelatedField(
         queryset = Ingredient.objects.all(),
     )
-
-    # def validate_id(self, value):
-    #     if not value:
-    #         raise serializers.ValidationError(
-    #             "Картирка обязетельно должна быть"
-    #         )
 
     class Meta():
         model = RecipeIngredient
@@ -287,7 +295,3 @@ class SubscriptionsSerializer(UserSerializer):
         model = User
         fields = ('email', 'id', 'username', 'first_name', 'last_name',
                   'avatar', 'is_subscribed', 'recipes', 'recipes_count')
-
-
-    
-    

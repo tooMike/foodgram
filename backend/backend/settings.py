@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'rest_framework.authtoken',
     'django_filters',
     'djoser',
+    'shortener',
     'api.apps.ApiConfig',
     'recipes.apps.RecipesConfig',
     'users.apps.UsersConfig'
@@ -156,3 +157,9 @@ DJOSER = {
     'LOGIN_FIELD': 'email',
     'HIDE_USERS': False,
 }
+
+# Настройки для django-link-shortener 0.5
+SHORTENER_ENABLED = True
+DOMAIN_FOR_SHORTENER_FRONT = os.getenv('DOMAIN_FOR_SHORTENER_FRONT')
+DOMAIN_FOR_SHORTENER_BACK = os.getenv('DOMAIN_FOR_SHORTENER_BACK')
+

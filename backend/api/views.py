@@ -1,21 +1,29 @@
+from collections import defaultdict
+from io import BytesIO
+
+from django.conf import settings as django_settings
 from django.contrib.auth import get_user_model
+from django.http import FileResponse, HttpResponse
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
-from djoser.conf import settings
+from djoser.conf import settings as djoser_settings
 from djoser.serializers import SetPasswordSerializer
 from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from shortener import shortener
 
+from api.constants import FilterStatus
 from api.filters import IngredientSearchFilter, RecipeFilter
 from api.pagination import RecipePagination, UsersPagination
 from api.permissions import IsAuthor, IsCurrentUser
 from api.serializers import (AvatarSerializer, IngredientSerialiser,
-                             RecipeGetSerialiser, RecipePostSerialiser,
-                             SubscriptionsSerializer, TagSerialiser,
-                             UserRegistrationSerializer, UserSerializer, RecipeFavoriteGetSerialiser)
-from recipes.models import Ingredient, Recipe, Tag
+                             RecipeFavoriteGetSerialiser, RecipeGetSerialiser,
+                             RecipePostSerialiser, SubscriptionsSerializer,
+                             TagSerialiser, UserRegistrationSerializer,
+                             UserSerializer)
+from recipes.models import Ingredient, Recipe, RecipeIngredient, Tag
 
 User = get_user_model()
 
@@ -29,7 +37,7 @@ class UserViewSet(viewsets.ModelViewSet):
     serializer_class = UserSerializer
     queryset = User.objects.all()
     permission_classes = (AllowAny,)
-    lookup_field = settings.USER_ID_FIELD
+    lookup_field = djoser_settings.USER_ID_FIELD
     pagination_class = UsersPagination
 
     def get_permissions(self):
@@ -170,13 +178,29 @@ class TagViewSet(viewsets.ModelViewSet):
 class RecipeViewSet(viewsets.ModelViewSet):
     """Представление для рецептов."""
 
-    queryset = Recipe.objects.all()
     serializer_class = RecipeGetSerialiser
     http_method_names = ('get', 'post', 'patch', 'delete')
     pagination_class = RecipePagination
     filter_backends = (DjangoFilterBackend,)
     filterset_class = RecipeFilter
     permission_classes = (AllowAny,)
+
+    def get_queryset(self):
+        """
+        Добавляем в queryset опцию фильтрации по избранному
+        и по списку покупок.
+        """
+        queryset = Recipe.objects.all()
+        is_favorited = self.request.query_params.get('is_favorited')
+        is_in_shopping_cart = self.request.query_params.get('is_in_shopping_cart')
+        user = self.request.user
+        if not user.is_authenticated:
+            return queryset
+        if is_favorited == FilterStatus.IS_ACTIVE.value:
+            queryset = queryset.filter(user_favorites_recipes=user)
+        if is_in_shopping_cart == FilterStatus.IS_ACTIVE.value:
+            queryset = queryset.filter(user_shopping_list_recipes=user)
+        return queryset
 
     def get_serializer_class(self):
         if self.action == 'create' or self.action == 'partial_update':
@@ -186,7 +210,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action == 'create':
             return (IsAuthenticated(),)
-        elif self.action == 'partial_update' or self.action == 'delete':
+        elif self.action == 'partial_update' or self.action == 'destroy':
             return (IsAuthor(),)
         return super().get_permissions()
 
@@ -210,12 +234,18 @@ class RecipeViewSet(viewsets.ModelViewSet):
     @action(["get"], detail=True, url_path='get-link')
     def get_link(self, request, pk=None):
         """Получаем короткую ссылку на рецепт."""
-        return Response({"short-link": "https://foodgram.example.org/s/3d0"}, status=status.HTTP_200_OK)
+        # Сохраняем все ссылки под пользователем superuser (root)
+        user = User.objects.get(username='root')
+        # short_link = shortener.create(user, f'http://127.0.0.1:3000/recipes/{pk}/')
+        # return Response({"short-link": f'http://127.0.0.1:8000/s/{short_link}'}, status=status.HTTP_200_OK)
+        short_link = shortener.create(user, f'{django_settings.DOMAIN_FOR_SHORTENER_FRONT}/recipes/{pk}/')
+        return Response({"short-link": f'{django_settings.DOMAIN_FOR_SHORTENER_BACK}/s/{short_link}'}, status=status.HTTP_200_OK)
 
-    @action(["post"], detail=True, permission_classes=(IsAuthenticated,))
+    @action(["post", "delete"], detail=True, permission_classes=(IsAuthenticated,))
     def favorite(self, request, pk=None):
-        """Добавляем рецепт в избранное."""
+        """Добавляем или удаляем рецепт из избранного."""
         # Проверяем, существует ли такой рецепт
+        # В ReDoc нет варианта 404 ошибки, поэтому возвращаем 400
         if not Recipe.objects.filter(pk=pk).first():
             return Response(
                 {"errors": "Такого рецепта не существует"},
@@ -223,12 +253,86 @@ class RecipeViewSet(viewsets.ModelViewSet):
             )
         recipe = Recipe.objects.get(pk=pk)
         user = request.user
-        # Проверяем, если ли такой рецепт уже в избранном
-        if user.favorites.filter(id=pk):
+        if request.method == 'POST':
+            # Проверяем, есть ли такой рецепт уже в избранном
+            if user.favorites.filter(id=pk):
+                return Response(
+                    {"errors": "Этот рецепт уже есть в избранном"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            user.favorites.add(recipe)
+            serializer = RecipeFavoriteGetSerialiser(recipe)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        # Далее настраиваем удаление из избранного
+        if not user.favorites.filter(id=pk):
+            # Проверяем, есть ли такой рецепт в избранном
             return Response(
-                {"errors": "Этот рецепт уже есть в избранном"},
+                {"errors": "Этого рецепта нет в избранном"},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        recipe.user_favorites_recipes.add(user)
-        serializer = RecipeFavoriteGetSerialiser(recipe)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        user.favorites.remove(recipe)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(["post", "delete"], detail=True, permission_classes=(IsAuthenticated,))
+    def shopping_cart(self, request, pk=None):
+        """Добавляем или удаляем рецепт из списка покупок."""
+        # Проверяем, существует ли такой рецепт
+        # В ReDoc нет варианта 404 ошибки, поэтому возвращаем 400
+        if not Recipe.objects.filter(pk=pk).first():
+            return Response(
+                {"errors": "Такого рецепта не существует"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        recipe = Recipe.objects.get(pk=pk)
+        user = request.user
+        if request.method == 'POST':
+            # Проверяем, есть ли такой рецепт уже в избранном
+            if user.shopping_list.filter(id=pk):
+                return Response(
+                    {"errors": "Этот рецепт уже есть в избранном"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            user.shopping_list.add(recipe)
+            serializer = RecipeFavoriteGetSerialiser(recipe)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        # Далее настраиваем удаление из избранного
+        if not user.shopping_list.filter(id=pk):
+            # Проверяем, есть ли такой рецепт в избранном
+            return Response(
+                {"errors": "Этого рецепта нет в избранном"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        user.shopping_list.remove(recipe)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(["get"], detail=False, permission_classes=(IsAuthenticated,))
+    def download_shopping_cart(self, request):
+        """Скачивание ингридиентов из списка покупок."""
+        user = request.user
+        recipes = Recipe.objects.filter(
+            user_shopping_list_recipes=user
+        ).prefetch_related('ingredients')
+        ingredients_count = defaultdict(int)
+
+        for recipe in recipes:
+            for item in recipe.recipeingredient.all():
+                ingredient = item.ingredient
+                ingredients_count[
+                    (ingredient.name, ingredient.measurement_unit)
+                ] += item.amount
+
+        # Создаем объект в памяти
+        virtual_file = BytesIO()
+        for (name, unit), amount in ingredients_count.items():
+            virtual_file.write(f"{name} – {amount} {unit}\n".encode('utf-8'))
+        virtual_file.seek(0)
+
+        # Отправляем файл пользователю
+        response = FileResponse(
+            virtual_file,
+            as_attachment=True,
+            filename="Shopping List.txt",
+            content_type='text/plain'
+        )
+        return response
+

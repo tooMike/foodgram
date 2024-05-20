@@ -1,9 +1,10 @@
 from django_filters import rest_framework as filters
 from django_filters.filters import (CharFilter,
-                                    MultipleChoiceFilter)
+                                    MultipleChoiceFilter, ModelMultipleChoiceFilter)
 from rest_framework.filters import SearchFilter
 
 from recipes.models import Recipe, Tag
+from api.constants import FilterStatus
 
 
 
@@ -13,10 +14,7 @@ class IngredientSearchFilter(SearchFilter):
 
 class RecipeFilter(filters.FilterSet):
     author = CharFilter(field_name='author')
-    
-    # Получение списка возможных тегов
-    tags_choices = Tag.objects.values_list('slug', flat=True).distinct()
-    tags = MultipleChoiceFilter(field_name='tags__slug', choices=[(tag, tag) for tag in tags_choices], conjoined=False)
+    tags = ModelMultipleChoiceFilter(field_name='tags__slug', queryset=Tag.objects.all(), to_field_name='slug', conjoined=False)
 
     class Meta:
         model = Recipe
