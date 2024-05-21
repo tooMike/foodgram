@@ -12,26 +12,19 @@ from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from url_shortener.models import ShortURL
+from url_shortener.shortner import generate_short_code
 
 from api.constants import FilterStatus
 from api.filters import IngredientSearchFilter, RecipeFilter
 from api.pagination import RecipePagination, UsersPagination
 from api.permissions import IsAuthor, IsCurrentUser
-from api.serializers import (
-    AvatarSerializer,
-    IngredientSerialiser,
-    RecipeFavoriteGetSerialiser,
-    RecipeGetSerialiser,
-    RecipePostSerialiser,
-    SubscriptionsSerializer,
-    TagSerialiser,
-    UserRegistrationSerializer,
-    UserSerializer,
-)
+from api.serializers import (AvatarSerializer, IngredientSerialiser,
+                             RecipeFavoriteGetSerialiser, RecipeGetSerialiser,
+                             RecipePostSerialiser, SubscriptionsSerializer,
+                             TagSerialiser, UserRegistrationSerializer,
+                             UserSerializer)
 from recipes.models import Ingredient, Recipe, Tag
-from url_shortener.shortner import generate_short_code
-from url_shortener.models import ShortURL
-
 
 User = get_user_model()
 
@@ -69,11 +62,13 @@ class UserViewSet(viewsets.ModelViewSet):
 
     @action(["get"], detail=False)
     def me(self, request, *args, **kwargs):
+        """Получение информации пользователем о себе."""
         self.get_object = self.get_instance
         return self.retrieve(request, *args, **kwargs)
 
     @action(["patch", "delete", "put"], detail=False, url_path="me/avatar")
     def avatar(self, request):
+        """Представление для взаимодействия пользователя со своим аватаром"""
         user = self.get_instance()
         # Если метод PATCH, то добавляем аватар
         # if request.method == "PATCH":
@@ -91,6 +86,7 @@ class UserViewSet(viewsets.ModelViewSet):
 
     @action(["post"], detail=False)
     def set_password(self, request):
+        """Представление для установки пароля."""
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         self.request.user.set_password(serializer.data["new_password"])
@@ -98,7 +94,11 @@ class UserViewSet(viewsets.ModelViewSet):
 
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    @action(["post", "delete"], detail=True, permission_classes=(IsAuthenticated,))
+    @action(
+        ["post", "delete"],
+        detail=True,
+        permission_classes=(IsAuthenticated,)
+    )
     def subscribe(self, request, id=None):
         """
         Подписываем или удаляем подписку текущего пользователя
@@ -119,7 +119,9 @@ class UserViewSet(viewsets.ModelViewSet):
                 )
             user.subscriptions.add(followee)
             serializer = SubscriptionsSerializer(
-                followee, context={"request": request})
+                followee,
+                context={"request": request}
+            )
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         if request.method == "DELETE":
             if user.subscriptions.filter(id=followee.id).exists():
@@ -189,7 +191,8 @@ class RecipeViewSet(viewsets.ModelViewSet):
         queryset = Recipe.objects.all()
         is_favorited = self.request.query_params.get("is_favorited")
         is_in_shopping_cart = self.request.query_params.get(
-            "is_in_shopping_cart")
+            "is_in_shopping_cart"
+        )
         user = self.request.user
         if not user.is_authenticated:
             return queryset
@@ -215,13 +218,13 @@ class RecipeViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         recipe = serializer.save(author=self.request.user)
-        headers = self.get_success_headers(serializer.data)
         response_serializer = RecipeGetSerialiser(
-            recipe, context={"request": request})
+            recipe,
+            context={"request": request}
+        )
         return Response(
             response_serializer.data,
-            status=status.HTTP_201_CREATED,
-            headers=headers
+            status=status.HTTP_201_CREATED
         )
 
     def partial_update(self, request, *args, **kwargs):
@@ -229,13 +232,12 @@ class RecipeViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(instance, data=request.data)
         serializer.is_valid(raise_exception=True)
         recipe = serializer.save()
-        headers = self.get_success_headers(serializer.data)
         response_serializer = RecipeGetSerialiser(
-            recipe, context={"request": request})
+            recipe,
+            context={"request": request}
+        )
         return Response(
-            response_serializer.data,
-            status=status.HTTP_200_OK,
-            headers=headers
+            response_serializer.data, status=status.HTTP_200_OK
         )
 
     @action(["get"], detail=True, url_path="get-link")
@@ -297,7 +299,11 @@ class RecipeViewSet(viewsets.ModelViewSet):
         user.favorites.remove(recipe)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    @action(["post", "delete"], detail=True, permission_classes=(IsAuthenticated,))
+    @action(
+        ["post", "delete"],
+        detail=True,
+        permission_classes=(IsAuthenticated,)
+    )
     def shopping_cart(self, request, pk=None):
         """Добавляем или удаляем рецепт из списка покупок."""
         # Проверяем, существует ли такой рецепт
@@ -340,7 +346,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
         for recipe in recipes:
             for item in recipe.recipeingredient.all().select_related(
-                'ingredient'
+                "ingredient"
             ):
                 ingredient = item.ingredient
                 ingredients_count[

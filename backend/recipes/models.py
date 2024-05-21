@@ -1,7 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.core.validators import MinValueValidator
 from django.db import models
-from django.urls import reverse
 
 from recipes.constants import (NAME_MAX_LENGHT, TAG_NAME_MAX_LENGHT,
                                MeasurementUnit)
@@ -60,13 +59,12 @@ class Recipe(models.Model):
     )
     ingredients = models.ManyToManyField(
         Ingredient,
-        through='RecipeIngredient',
+        through="RecipeIngredient",
         verbose_name="Ингридиенты",
-        related_name="ingredients_recipes"
+        related_name="ingredients_recipes",
     )
     tags = models.ManyToManyField(
-        Tag,
-        through='RecipeTag',
+        Tag, through="RecipeTag",
         verbose_name="Теги",
         related_name="tags_recipes"
     )
@@ -79,13 +77,16 @@ class Recipe(models.Model):
 
     def __str__(self):
         return self.name
-    
-    def get_absolute_url(self):
-        return reverse("api:recipes-detail", kwargs={"pk": self.pk})
-    
+
 
 class RecipeTag(models.Model):
-    recipe = models.ForeignKey(Recipe, verbose_name="Рецепт", on_delete=models.CASCADE)
+    """Промежуточная модель тегов и рецептов."""
+
+    recipe = models.ForeignKey(
+        Recipe,
+        verbose_name="Рецепт",
+        on_delete=models.CASCADE
+    )
     tag = models.ForeignKey(Tag, verbose_name="Тег", on_delete=models.CASCADE)
 
     class Meta:
@@ -93,9 +94,19 @@ class RecipeTag(models.Model):
 
 
 class RecipeIngredient(models.Model):
-    recipe = models.ForeignKey(Recipe, verbose_name="Рецепт", on_delete=models.CASCADE)
-    ingredient = models.ForeignKey(Ingredient, verbose_name="Ингридиент", on_delete=models.CASCADE)
-    amount = models.PositiveSmallIntegerField("Количество", validators=(MinValueValidator(1),))
+    """Промежуточная модель ингредиентов и рецептов."""
+
+    recipe = models.ForeignKey(
+        Recipe,
+        verbose_name="Рецепт",
+        on_delete=models.CASCADE
+    )
+    ingredient = models.ForeignKey(
+        Ingredient, verbose_name="Ингридиент", on_delete=models.CASCADE
+    )
+    amount = models.PositiveSmallIntegerField(
+        "Количество", validators=(MinValueValidator(1),)
+    )
 
     class Meta:
         default_related_name = "recipeingredient"

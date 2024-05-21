@@ -4,7 +4,6 @@ from drf_extra_fields.fields import Base64ImageField
 from rest_framework import serializers
 
 from recipes.models import Ingredient, Recipe, RecipeIngredient, RecipeTag, Tag
-from users.constants import PASSWORD_MAX_LENGTH
 
 
 User = get_user_model()
@@ -15,7 +14,14 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ("email", "id", "username", "first_name", "last_name", "password")
+        fields = (
+            "email",
+            "id",
+            "username",
+            "first_name",
+            "last_name",
+            "password"
+        )
         extra_kwargs = {"password": {"write_only": True}}
 
     def create(self, validated_data):
@@ -69,6 +75,7 @@ class AvatarSerializer(serializers.ModelSerializer):
         fields = ("avatar",)
 
     def validate_avatar(self, value):
+        """Проверяем, что передано не пустое поле."""
         if value is None:
             raise ValidationError("Передано пустое поле avatar")
         return value
@@ -98,7 +105,9 @@ class RecipeIngredientGetSerializer(serializers.ModelSerializer):
 
     id = serializers.ReadOnlyField(source="ingredient.id")
     name = serializers.ReadOnlyField(source="ingredient.name")
-    measurement_unit = serializers.ReadOnlyField(source="ingredient.measurement_unit")
+    measurement_unit = serializers.ReadOnlyField(
+        source="ingredient.measurement_unit"
+    )
 
     class Meta:
         model = RecipeIngredient
@@ -111,7 +120,10 @@ class RecipeGetSerialiser(serializers.ModelSerializer):
     image = Base64ImageField()
     author = UserSerializer()
     tags = TagSerialiser(many=True)
-    ingredients = RecipeIngredientGetSerializer(many=True, source="recipeingredient")
+    ingredients = RecipeIngredientGetSerializer(
+        many=True,
+        source="recipeingredient"
+    )
 
     is_favorited = serializers.SerializerMethodField()
     is_in_shopping_cart = serializers.SerializerMethodField()
@@ -181,12 +193,25 @@ class RecipePostSerialiser(serializers.ModelSerializer):
     """Сериализатор для добавления рецептов."""
 
     image = Base64ImageField()
-    ingredients = RecipeIngredientPostSerialiser(many=True, source="recipeingredient")
-    tags = serializers.PrimaryKeyRelatedField(queryset=Tag.objects.all(), many=True)
+    ingredients = RecipeIngredientPostSerialiser(
+        many=True,
+        source="recipeingredient"
+    )
+    tags = serializers.PrimaryKeyRelatedField(
+        queryset=Tag.objects.all(),
+        many=True
+    )
 
     class Meta:
         model = Recipe
-        fields = ("ingredients", "tags", "image", "name", "text", "cooking_time")
+        fields = (
+            "ingredients",
+            "tags",
+            "image",
+            "name",
+            "text",
+            "cooking_time"
+        )
 
     def validate_image(self, value):
         if value in [None, ""]:
@@ -198,9 +223,13 @@ class RecipePostSerialiser(serializers.ModelSerializer):
     def validate_tags(self, value):
         """Проверка, что список тегов не пуст."""
         if not value:
-            raise serializers.ValidationError("Необходимо указать хотя бы один тег.")
+            raise serializers.ValidationError(
+                "Необходимо указать хотя бы один тег."
+            )
         if len(value) != len(set(value)):
-            raise serializers.ValidationError("Теги не должны повторяться.")
+            raise serializers.ValidationError(
+                "Теги не должны повторяться."
+            )
         return value
 
     def validate_ingredients(self, value):
@@ -210,7 +239,7 @@ class RecipePostSerialiser(serializers.ModelSerializer):
                 "Необходимо указать хотя бы один ингредиент."
             )
         for item in value:
-            for second_item in value[value.index(item) + 1 :]:
+            for second_item in value[value.index(item) + 1:]:
                 if item["id"] == second_item["id"]:
                     raise serializers.ValidationError(
                         "Ингредиенты не должны повторяться."
@@ -229,11 +258,16 @@ class RecipePostSerialiser(serializers.ModelSerializer):
         )
 
         # Добавляем ингридиенты в промежуточную модель
-        RecipeIngredient.objects.bulk_create([RecipeIngredient(
-            ingredient=ingredient["id"],
-            amount=ingredient["amount"],
-            recipe=recipe
-        ) for ingredient in ingredients])
+        RecipeIngredient.objects.bulk_create(
+            [
+                RecipeIngredient(
+                    ingredient=ingredient["id"],
+                    amount=ingredient["amount"],
+                    recipe=recipe,
+                )
+                for ingredient in ingredients
+            ]
+        )
 
         return recipe
 
@@ -283,6 +317,10 @@ class RecipePostSerialiser(serializers.ModelSerializer):
 
 
 class SubscriptionsRecipeSerializer(serializers.ModelSerializer):
+    """
+    Сериализатор для рецептом пользователя,
+    на которого текущий пользователь подписался.
+    """
 
     class Meta:
         model = Recipe

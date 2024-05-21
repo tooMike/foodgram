@@ -5,6 +5,7 @@ from url_shortener.models import ShortURL
 
 
 def expand(request, uniq_id):
+    """Представление для коротких ссылок."""
     try:
         link = get_object_or_404(ShortURL, uniq_id=uniq_id).full_url
         return redirect(link)
