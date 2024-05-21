@@ -246,10 +246,14 @@ class RecipeViewSet(viewsets.ModelViewSet):
         # Проверяем, есть ли уже uniq_id для этой ссылки
         # отдаем коротнкую ссылку с ним, если uniq_id уже есть
         # или создаем новый в БД
-        if ShortURL.objects.filter(full_url=full_url).first():
+        if ShortURL.objects.filter(full_url=full_url).exists():
             uniq_id = ShortURL.objects.get(full_url=full_url).uniq_id
         else:
             uniq_id = generate_short_code()
+            # Генерируем uniq_id до тех пор,
+            # пока не получим уникальное значение
+            while ShortURL.objects.filter(uniq_id=uniq_id).exists():
+                uniq_id = generate_short_code()
             ShortURL.objects.create(full_url=full_url, uniq_id=uniq_id)
         short_url = f"{django_settings.DOMAIN_BACK}/s/{uniq_id}"
         return Response(
@@ -266,7 +270,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
         """Добавляем или удаляем рецепт из избранного."""
         # Проверяем, существует ли такой рецепт
         # В ReDoc нет варианта 404 ошибки, поэтому возвращаем 400
-        if not Recipe.objects.filter(pk=pk).first():
+        if not Recipe.objects.filter(pk=pk).exists():
             return Response(
                 {"errors": "Такого рецепта не существует"},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -298,7 +302,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
         """Добавляем или удаляем рецепт из списка покупок."""
         # Проверяем, существует ли такой рецепт
         # В ReDoc нет варианта 404 ошибки, поэтому возвращаем 400
-        if not Recipe.objects.filter(pk=pk).first():
+        if not Recipe.objects.filter(pk=pk).exists():
             return Response(
                 {"errors": "Такого рецепта не существует"},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -306,10 +310,10 @@ class RecipeViewSet(viewsets.ModelViewSet):
         recipe = Recipe.objects.get(pk=pk)
         user = request.user
         if request.method == "POST":
-            # Проверяем, есть ли такой рецепт уже в избранном
+            # Проверяем, есть ли такой рецепт уже в списке покупок
             if user.shopping_list.filter(id=pk):
                 return Response(
-                    {"errors": "Этот рецепт уже есть в избранном"},
+                    {"errors": "Этот рецепт уже есть в списке покупок"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             user.shopping_list.add(recipe)
@@ -317,9 +321,9 @@ class RecipeViewSet(viewsets.ModelViewSet):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         # Далее настраиваем удаление из избранного
         if not user.shopping_list.filter(id=pk):
-            # Проверяем, есть ли такой рецепт в избранном
+            # Проверяем, есть ли такой рецепт в списке покупок
             return Response(
-                {"errors": "Этого рецепта нет в избранном"},
+                {"errors": "Этого рецепта нет в списке покупок"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         user.shopping_list.remove(recipe)
@@ -343,7 +347,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
                     (ingredient.name, ingredient.measurement_unit)
                 ] += item.amount
 
-        # Создаем объект в памяти
+        # Создаем файл
         virtual_file = BytesIO()
         for (name, unit), amount in ingredients_count.items():
             virtual_file.write(f"{name} – {amount} {unit}\n".encode("utf-8"))

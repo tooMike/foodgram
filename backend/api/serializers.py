@@ -220,38 +220,63 @@ class RecipePostSerialiser(serializers.ModelSerializer):
     def create(self, validated_data):
         ingredients = validated_data.pop("recipeingredient")
         tags = validated_data.pop("tags")
-        image = validated_data.pop("image", None)
+        image = validated_data.pop("image")
         recipe = Recipe.objects.create(**validated_data, image=image)
 
-        for tag in tags:
-            RecipeTag.objects.create(tag=tag, recipe=recipe)
+        # Добавляем теги в промежуточную модель
+        RecipeTag.objects.bulk_create(
+            [RecipeTag(tag=tag, recipe=recipe) for tag in tags]
+        )
 
-        for ingredient in ingredients:
-            RecipeIngredient.objects.create(
-                ingredient=ingredient["id"],
-                amount=ingredient["amount"],
-                recipe=recipe
-            )
+        # Добавляем ингридиенты в промежуточную модель
+        RecipeIngredient.objects.bulk_create([RecipeIngredient(
+            ingredient=ingredient["id"],
+            amount=ingredient["amount"],
+            recipe=recipe
+        ) for ingredient in ingredients])
 
         return recipe
 
     def update(self, instance, validated_data):
-        ingredients = validated_data.pop("recipeingredient")
-        tags = validated_data.pop("tags")
+        new_tags = validated_data.pop("tags")
+        new_ingredients = validated_data.pop("recipeingredient")
 
-        # Удаляем и перезаписывам теги
-        RecipeTag.objects.filter(recipe=instance).delete()
-        for tag in tags:
-            instance.recipetag.create(tag=tag, recipe=instance)
+        instance.image = validated_data["image"]
+        instance.name = validated_data["name"]
+        instance.text = validated_data["text"]
+        instance.cooking_time = validated_data["cooking_time"]
 
-        # Удаляем и перезаписывам ингредиенты
-        RecipeIngredient.objects.filter(recipe=instance).delete()
-        for ingredient in ingredients:
-            instance.recipeingredient.create(
-                ingredient=ingredient["id"],
-                amount=ingredient["amount"],
-                recipe=instance,
-            )
+        # Перезаписываем теги
+        new_tags = set(tag.id for tag in new_tags)
+        current_tags = set(instance.tags.values_list("id", flat=True))
+
+        tags_to_delete = current_tags - new_tags
+        if tags_to_delete:
+            instance.tags.remove(*tags_to_delete)
+
+        tags_to_add = new_tags - current_tags
+        if tags_to_add:
+            instance.tags.add(*tags_to_add)
+
+        # Перезаписывам ингредиенты
+        current_ingredients = {
+            ing.ingredient_id: ing for ing in instance.recipeingredient.all()
+        }
+        new_ingredients = {ing["id"].id: ing for ing in new_ingredients}
+
+        for ing_id in current_ingredients.keys():
+            if ing_id not in new_ingredients:
+                current_ingredients[ing_id].delete()
+
+        for ing_id, data in new_ingredients.items():
+            if ing_id in current_ingredients:
+                current_ingredients[ing_id].amount = data["amount"]
+                current_ingredients[ing_id].save()
+            else:
+                instance.recipeingredient.create(
+                    ingredient_id=ing_id,
+                    amount=data["amount"],
+                )
 
         instance.save()
         return instance
