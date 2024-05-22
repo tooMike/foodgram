@@ -1,11 +1,21 @@
 version: '3.3'
 services:
 
+  backend:
+    build: ./backend/
+    env_file: .env
+    depends_on:
+      - db
+    volumes:
+      - static:/backend_static
+      - media:/app/media
+
   frontend:
     container_name: foodgram-front
     build: ../frontend
     volumes:
       - ../frontend/:/app/result_build/
+
   nginx:
     container_name: foodgram-proxy
     image: nginx:1.25.4-alpine

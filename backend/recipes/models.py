@@ -9,7 +9,7 @@ User = get_user_model()
 
 
 class Ingredient(models.Model):
-    """Модель ингридиентов."""
+    """Модель ингредиентов."""
 
     name = models.CharField("Название", max_length=NAME_MAX_LENGHT)
     measurement_unit = models.CharField(
@@ -17,8 +17,8 @@ class Ingredient(models.Model):
     )
 
     class Meta:
-        verbose_name = "ингридиент"
-        verbose_name_plural = "Ингридиенты"
+        verbose_name = "ингредиент"
+        verbose_name_plural = "Ингредиенты"
         default_related_name = "ingredients"
         ordering = ("name",)
 
@@ -51,6 +51,7 @@ class Recipe(models.Model):
     cooking_time = models.PositiveSmallIntegerField(
         "Время приготовления", validators=(MinValueValidator(1),)
     )
+    created_at = models.DateTimeField("Время добавления", auto_now_add=True)
     author = models.ForeignKey(
         User,
         verbose_name="Автор",
@@ -60,7 +61,7 @@ class Recipe(models.Model):
     ingredients = models.ManyToManyField(
         Ingredient,
         through="RecipeIngredient",
-        verbose_name="Ингридиенты",
+        verbose_name="Ингредиенты",
         related_name="ingredients_recipes",
     )
     tags = models.ManyToManyField(
@@ -73,7 +74,7 @@ class Recipe(models.Model):
         verbose_name = "рецепт"
         verbose_name_plural = "Рецепты"
         default_related_name = "recipes"
-        ordering = ("name",)
+        ordering = ("-created_at",)
 
     def __str__(self):
         return self.name
@@ -102,7 +103,7 @@ class RecipeIngredient(models.Model):
         on_delete=models.CASCADE
     )
     ingredient = models.ForeignKey(
-        Ingredient, verbose_name="Ингридиент", on_delete=models.CASCADE
+        Ingredient, verbose_name="Ингредиент", on_delete=models.CASCADE
     )
     amount = models.PositiveSmallIntegerField(
         "Количество", validators=(MinValueValidator(1),)

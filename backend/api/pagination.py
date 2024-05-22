@@ -1,13 +1,9 @@
-from rest_framework.pagination import LimitOffsetPagination
+from rest_framework.pagination import PageNumberPagination
 
 
-class UsersPagination(LimitOffsetPagination):
-    """Пагинация для списка пользователей."""
+class FoodgramPagination(PageNumberPagination):
+    """Пагинация c переметром limit."""
 
-    default_limit = 10
+    page_size_query_param = 'limit'
+    page_size = 10
 
-
-class RecipePagination(LimitOffsetPagination):
-    """Пагинация для списка рецептов."""
-
-    default_limit = 10

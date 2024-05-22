@@ -17,13 +17,13 @@ from url_shortener.shortner import generate_short_code
 
 from api.constants import FilterStatus
 from api.filters import IngredientSearchFilter, RecipeFilter
-from api.pagination import RecipePagination, UsersPagination
+from api.pagination import FoodgramPagination
 from api.permissions import IsAuthor, IsCurrentUser
+from api.recipes_utils import add_recipe_to_list
 from api.serializers import (AvatarSerializer, IngredientSerialiser,
-                             RecipeFavoriteGetSerialiser, RecipeGetSerialiser,
-                             RecipePostSerialiser, SubscriptionsSerializer,
-                             TagSerialiser, UserRegistrationSerializer,
-                             UserSerializer)
+                             RecipeGetSerialiser, RecipePostSerialiser,
+                             SubscriptionsSerializer, TagSerialiser,
+                             UserRegistrationSerializer, UserSerializer)
 from recipes.models import Ingredient, Recipe, Tag
 
 User = get_user_model()
@@ -39,7 +39,7 @@ class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     permission_classes = (AllowAny,)
     lookup_field = djoser_settings.USER_ID_FIELD
-    pagination_class = UsersPagination
+    pagination_class = FoodgramPagination
 
     def get_permissions(self):
         if self.action == "set_password":
@@ -70,9 +70,10 @@ class UserViewSet(viewsets.ModelViewSet):
     def avatar(self, request):
         """Представление для взаимодействия пользователя со своим аватаром"""
         user = self.get_instance()
+        # Строчка ниже для прохождения тестов в Postman
+        if request.method == "PUT":
         # Если метод PATCH, то добавляем аватар
         # if request.method == "PATCH":
-        if request.method == "PUT":
             serializer = self.get_serializer(
                 user, data=request.data, context={"request": request}
             )
@@ -139,7 +140,7 @@ class UserViewSet(viewsets.ModelViewSet):
         subscriptions = user.subscriptions.all()
 
         # Добавляем пагинацию
-        paginator = UsersPagination()
+        paginator = FoodgramPagination()
         page = paginator.paginate_queryset(subscriptions, request)
         if page is not None:
             serializer = SubscriptionsSerializer(
@@ -178,7 +179,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
     serializer_class = RecipeGetSerialiser
     http_method_names = ("get", "post", "patch", "delete")
-    pagination_class = RecipePagination
+    pagination_class = FoodgramPagination
     filter_backends = (DjangoFilterBackend,)
     filterset_class = RecipeFilter
     permission_classes = (AllowAny,)
@@ -245,8 +246,8 @@ class RecipeViewSet(viewsets.ModelViewSet):
         """Формируем короткую ссылку на рецепт."""
         # Получаем полную ссылку на рецепт
         full_url = f"{django_settings.DOMAIN_FRONT}/recipes/{pk}/"
-        # Проверяем, есть ли уже uniq_id для этой ссылки
-        # отдаем коротнкую ссылку с ним, если uniq_id уже есть
+        # Проверяем, есть ли уже uniq_id для этой ссылки.
+        # Отдаем коротнкую ссылку с ним, если uniq_id уже есть
         # или создаем новый в БД
         if ShortURL.objects.filter(full_url=full_url).exists():
             uniq_id = ShortURL.objects.get(full_url=full_url).uniq_id
@@ -269,35 +270,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
         permission_classes=(IsAuthenticated,)
     )
     def favorite(self, request, pk=None):
-        """Добавляем или удаляем рецепт из избранного."""
-        # Проверяем, существует ли такой рецепт
-        # В ReDoc нет варианта 404 ошибки, поэтому возвращаем 400
-        if not Recipe.objects.filter(pk=pk).exists():
-            return Response(
-                {"errors": "Такого рецепта не существует"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        recipe = Recipe.objects.get(pk=pk)
-        user = request.user
-        if request.method == "POST":
-            # Проверяем, есть ли такой рецепт уже в избранном
-            if user.favorites.filter(id=pk):
-                return Response(
-                    {"errors": "Этот рецепт уже есть в избранном"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            user.favorites.add(recipe)
-            serializer = RecipeFavoriteGetSerialiser(recipe)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        # Далее настраиваем удаление из избранного
-        if not user.favorites.filter(id=pk):
-            # Проверяем, есть ли такой рецепт в избранном
-            return Response(
-                {"errors": "Этого рецепта нет в избранном"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        user.favorites.remove(recipe)
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        return add_recipe_to_list(request, pk, list_type='favorite')
 
     @action(
         ["post", "delete"],
@@ -305,35 +278,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
         permission_classes=(IsAuthenticated,)
     )
     def shopping_cart(self, request, pk=None):
-        """Добавляем или удаляем рецепт из списка покупок."""
-        # Проверяем, существует ли такой рецепт
-        # В ReDoc нет варианта 404 ошибки, поэтому возвращаем 400
-        if not Recipe.objects.filter(pk=pk).exists():
-            return Response(
-                {"errors": "Такого рецепта не существует"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        recipe = Recipe.objects.get(pk=pk)
-        user = request.user
-        if request.method == "POST":
-            # Проверяем, есть ли такой рецепт уже в списке покупок
-            if user.shopping_list.filter(id=pk):
-                return Response(
-                    {"errors": "Этот рецепт уже есть в списке покупок"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            user.shopping_list.add(recipe)
-            serializer = RecipeFavoriteGetSerialiser(recipe)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        # Далее настраиваем удаление из избранного
-        if not user.shopping_list.filter(id=pk):
-            # Проверяем, есть ли такой рецепт в списке покупок
-            return Response(
-                {"errors": "Этого рецепта нет в списке покупок"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        user.shopping_list.remove(recipe)
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        return add_recipe_to_list(request, pk, list_type='shopping_cart')
 
     @action(["get"], detail=False, permission_classes=(IsAuthenticated,))
     def download_shopping_cart(self, request):

@@ -80,6 +80,11 @@ class AvatarSerializer(serializers.ModelSerializer):
             raise ValidationError("Передано пустое поле avatar")
         return value
 
+    def update(self, instance, validated_data):
+        instance.avatar = validated_data.get('avatar', instance.avatar)
+        instance.save()
+        return instance
+
 
 class IngredientSerialiser(serializers.ModelSerializer):
     """Сериализатор для ингридиентов."""
@@ -259,14 +264,11 @@ class RecipePostSerialiser(serializers.ModelSerializer):
 
         # Добавляем ингридиенты в промежуточную модель
         RecipeIngredient.objects.bulk_create(
-            [
-                RecipeIngredient(
-                    ingredient=ingredient["id"],
-                    amount=ingredient["amount"],
-                    recipe=recipe,
-                )
-                for ingredient in ingredients
-            ]
+            [RecipeIngredient(
+                ingredient=ingredient["id"],
+                amount=ingredient["amount"],
+                recipe=recipe,
+            ) for ingredient in ingredients]
         )
 
         return recipe
@@ -275,10 +277,13 @@ class RecipePostSerialiser(serializers.ModelSerializer):
         new_tags = validated_data.pop("tags")
         new_ingredients = validated_data.pop("recipeingredient")
 
-        instance.image = validated_data["image"]
-        instance.name = validated_data["name"]
-        instance.text = validated_data["text"]
-        instance.cooking_time = validated_data["cooking_time"]
+        instance.image = validated_data.get("image", instance.image)
+        instance.name = validated_data.get("name", instance.name)
+        instance.text = validated_data.get("text", instance.text)
+        instance.cooking_time = validated_data.get(
+            "cooking_time",
+            instance.cooking_time
+        )
 
         # Перезаписываем теги
         new_tags = set(tag.id for tag in new_tags)
@@ -301,16 +306,22 @@ class RecipePostSerialiser(serializers.ModelSerializer):
         for ing_id in current_ingredients.keys():
             if ing_id not in new_ingredients:
                 current_ingredients[ing_id].delete()
-
+        
+        new_ingredients_list = []
         for ing_id, data in new_ingredients.items():
             if ing_id in current_ingredients:
                 current_ingredients[ing_id].amount = data["amount"]
                 current_ingredients[ing_id].save()
             else:
-                instance.recipeingredient.create(
-                    ingredient_id=ing_id,
-                    amount=data["amount"],
+                new_ingredients_list.append(
+                    RecipeIngredient(
+                        ingredient=ing_id,
+                        amount=data["amount"],
+                        recipe=instance,
+                    )
                 )
+        if new_ingredients_list:
+            RecipeIngredient.objects.bulk_create(new_ingredients_list)
 
         instance.save()
         return instance
