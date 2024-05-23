@@ -13,6 +13,7 @@ class IngredientAdmin(admin.ModelAdmin):
     """Отображение ингредиентов."""
 
     search_fields = ("name",)
+    list_display = ("name", "measurement_unit")
 
 
 class RecipeIngredientInline(admin.TabularInline):
@@ -43,6 +44,7 @@ class RecipeAdmin(admin.ModelAdmin):
         "author__last_name",
         "tags__name",
     )
+    list_filter = ('tags__name',)
 
     def count_favorites(self, obj):
         return obj.user_favorites_recipes.count()
