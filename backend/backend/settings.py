@@ -136,8 +136,6 @@ USE_TZ = True
 STATIC_URL = '/backend_static/'
 STATIC_ROOT = '/backend_static'
 
-# STATICFILES_DIRS = ((BASE_DIR / 'static/'),)
-
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
@@ -163,8 +161,6 @@ DJOSER = {
     'HIDE_USERS': False,
 }
 
-# Настройки для django-link-shortener 0.5
-SHORTENER_ENABLED = True
 DOMAIN_FRONT = os.getenv('DOMAIN_FOR_SHORTENER_FRONT')
 DOMAIN_BACK = os.getenv('DOMAIN_FOR_SHORTENER_BACK')
 

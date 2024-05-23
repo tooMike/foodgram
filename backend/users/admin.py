@@ -3,5 +3,4 @@ from django.contrib.auth.admin import UserAdmin
 
 from users.models import FoodgramUser
 
-
 admin.site.register(FoodgramUser, UserAdmin)

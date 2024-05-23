@@ -2,8 +2,8 @@ from django.contrib.auth import get_user_model
 from django.core.validators import MinValueValidator
 from django.db import models
 
-from recipes.constants import (NAME_MAX_LENGHT, TAG_NAME_MAX_LENGHT,
-                               MeasurementUnit)
+from recipes.constants import (MEASUREMENT_NAME_MAX_LENGHT, NAME_MAX_LENGHT,
+                               TAG_NAME_MAX_LENGHT, MeasurementUnit)
 
 User = get_user_model()
 
@@ -13,7 +13,9 @@ class Ingredient(models.Model):
 
     name = models.CharField("Название", max_length=NAME_MAX_LENGHT)
     measurement_unit = models.CharField(
-        "Единицы измерения", choices=MeasurementUnit.choices, max_length=10
+        "Единицы измерения",
+        choices=MeasurementUnit.choices,
+        max_length=MEASUREMENT_NAME_MAX_LENGHT
     )
 
     class Meta:

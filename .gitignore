@@ -140,3 +140,8 @@ dmypy.json
 
 static/
 media/
+
+# вспомогательные файлы
+.isort.cfg
+.github/.DS_Store
+.DS_Store

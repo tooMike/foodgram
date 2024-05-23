@@ -12,8 +12,6 @@ from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
-from url_shortener.models import ShortURL
-from url_shortener.shortner import generate_short_code
 
 from api.constants import FilterStatus
 from api.filters import IngredientSearchFilter, RecipeFilter
@@ -25,6 +23,8 @@ from api.serializers import (AvatarSerializer, IngredientSerialiser,
                              SubscriptionsSerializer, TagSerialiser,
                              UserRegistrationSerializer, UserSerializer)
 from recipes.models import Ingredient, Recipe, Tag
+from url_shortener.models import ShortURL
+from url_shortener.shortner import generate_short_code
 
 User = get_user_model()
 
@@ -66,14 +66,12 @@ class UserViewSet(viewsets.ModelViewSet):
         self.get_object = self.get_instance
         return self.retrieve(request, *args, **kwargs)
 
-    @action(["patch", "delete", "put"], detail=False, url_path="me/avatar")
+    @action(["delete", "put"], detail=False, url_path="me/avatar")
     def avatar(self, request):
         """Представление для взаимодействия пользователя со своим аватаром"""
         user = self.get_instance()
-        # Строчка ниже для прохождения тестов в Postman
+        # Метод PUT вместо PATCH, так как фронт работает именно с PUT
         if request.method == "PUT":
-        # Если метод PATCH, то добавляем аватар
-        # if request.method == "PATCH":
             serializer = self.get_serializer(
                 user, data=request.data, context={"request": request}
             )

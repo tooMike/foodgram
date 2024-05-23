@@ -3,7 +3,6 @@ from rest_framework import routers
 
 from api import views as api_views
 
-
 app_name = "api"
 
 router_v1 = routers.DefaultRouter()

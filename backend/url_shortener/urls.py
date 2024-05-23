@@ -1,4 +1,5 @@
 from django.urls import path
+
 from url_shortener import views
 
 urlpatterns = [

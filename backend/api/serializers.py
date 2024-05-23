@@ -5,7 +5,6 @@ from rest_framework import serializers
 
 from recipes.models import Ingredient, Recipe, RecipeIngredient, RecipeTag, Tag
 
-
 User = get_user_model()
 
 
@@ -306,7 +305,7 @@ class RecipePostSerialiser(serializers.ModelSerializer):
         for ing_id in current_ingredients.keys():
             if ing_id not in new_ingredients:
                 current_ingredients[ing_id].delete()
-        
+
         new_ingredients_list = []
         for ing_id, data in new_ingredients.items():
             if ing_id in current_ingredients:
