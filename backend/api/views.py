@@ -1,21 +1,13 @@
-from collections import defaultdict
-from io import BytesIO
-
-from django.conf import settings as django_settings
 from django.contrib.auth import get_user_model
 from django.db.models import Sum
-from django.http import FileResponse
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
-from djoser.conf import settings as djoser_settings
-from djoser.serializers import SetPasswordSerializer
 from djoser.views import UserViewSet
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
-# from api.constants import FilterStatus
 from api.filters import IngredientSearchFilter, RecipeFilter
 from api.mixins import GetListViewSet
 from api.pagination import FoodgramPagination
@@ -23,12 +15,12 @@ from api.permissions import IsAuthorOrReadOnly
 from api.recipes_utils import (add_recipe_to_list,
                                create_file_for_shopping_cart,
                                delete_recipe_from_list)
-from api.serializers import AvatarSerializer  # UserRegistrationSerializer,
-from api.serializers import (IngredientSerialiser, RecipeGetSerialiser,
-                             RecipePostSerialiser, RecipeToFavoriteSerializer,
+from api.serializers import (AvatarSerializer, IngredientSerialiser,
+                             RecipeGetSerialiser, RecipePostSerialiser,
+                             RecipeToFavoriteSerializer,
                              RecipeToShoppingListSerializer,
                              SubscriptionsSerializer, TagSerialiser,
-                             UserSerializer, UserSubscriptionSerializer)
+                             UserSubscriptionSerializer)
 from recipes.models import Ingredient, Recipe, RecipeIngredient, Tag
 from users.models import UserFavorite, UserShoppingList, UserSubscriptions
 
@@ -36,19 +28,14 @@ User = get_user_model()
 
 
 class UserViewSet(UserViewSet):
-    """
-    Создаем своей ViewSet, взяв за основу UserViewSet из djoser,
-    чтобы оставить только нужный функционал
-    """
+    """Модифицируем UserViewSet из djoser."""
 
     pagination_class = FoodgramPagination
 
-    @action(["get"], detail=False, permission_classes=[IsAuthenticated])
-    def me(self, request):
-        """Получение информации пользователем о себе."""
-        user = self.request.user
-        serializer = self.get_serializer(user)
-        return Response(serializer.data)
+    def get_permissions(self):
+        if self.action == "me":
+            return (IsAuthenticated(),)
+        return super().get_permissions()
 
     @action(
         ["delete", "put"],
@@ -73,7 +60,11 @@ class UserViewSet(UserViewSet):
             user.avatar.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    @action(["post", "delete"], detail=True, permission_classes=(IsAuthenticated,))
+    @action(
+        ["post", "delete"],
+        detail=True,
+        permission_classes=(IsAuthenticated,)
+    )
     def subscribe(self, request, id=None):
         """
         Подписываем или удаляем подписку текущего пользователя
@@ -88,8 +79,14 @@ class UserViewSet(UserViewSet):
             )
             if serializer.is_valid():
                 serializer.save()
-                return Response(serializer.data, status=status.HTTP_201_CREATED)
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    serializer.data,
+                    status=status.HTTP_201_CREATED
+                )
+            return Response(
+                serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         subscription = UserSubscriptions.objects.filter(
             user=user, subscription=subscription
@@ -107,9 +104,7 @@ class UserViewSet(UserViewSet):
         """Получаем список подписок текущего пользователя."""
         user = self.request.user
         subscriptions = user.subscriptions.all()
-
         # Добавляем пагинацию
-        # paginator = FoodgramPagination()
         page = self.paginate_queryset(subscriptions)
         serializer = SubscriptionsSerializer(
             page, many=True, context={"request": request}
@@ -146,7 +141,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
     filterset_class = RecipeFilter
     permission_classes = (IsAuthorOrReadOnly,)
 
-    def get_serializer_class(self): 
+    def get_serializer_class(self):
         if self.action in ("create", "partial_update"):
             return RecipePostSerialiser
         return super().get_serializer_class()
@@ -161,13 +156,21 @@ class RecipeViewSet(viewsets.ModelViewSet):
             status=status.HTTP_200_OK,
         )
 
-    @action(["post", "delete"], detail=True, permission_classes=(IsAuthenticated,))
+    @action(
+        ["post", "delete"],
+        detail=True,
+        permission_classes=(IsAuthenticated,)
+    )
     def favorite(self, request, pk=None):
         if request.method == "POST":
             return add_recipe_to_list(
                 request=request, pk=pk, serializer=RecipeToFavoriteSerializer
             )
-        return delete_recipe_from_list(request=request, pk=pk, model=UserFavorite)
+        return delete_recipe_from_list(
+            request=request,
+            pk=pk,
+            model=UserFavorite
+        )
 
     @action(["post", "delete"], detail=True, permission_classes=(IsAuthenticated,))
     def shopping_cart(self, request, pk=None):
@@ -182,12 +185,14 @@ class RecipeViewSet(viewsets.ModelViewSet):
         """Скачивание ингридиентов из списка покупок."""
         user = request.user
 
-        ingredients = RecipeIngredient.objects.filter(
-            recipe__usershoppinglist__user=user
-        ).values(
-            'ingredient__name', 'ingredient__measurement_unit'
-        ).annotate(
-            amount=Sum('amount')
-        ).order_by("ingredient__name")
+        ingredients = (
+            RecipeIngredient.objects.filter(
+                recipe__usershoppinglist__user=user
+            ).values(
+                "ingredient__name", "ingredient__measurement_unit"
+            ).annotate(
+                amount=Sum("amount")
+            ).order_by("ingredient__name")
+        )
 
         return create_file_for_shopping_cart(ingredients)

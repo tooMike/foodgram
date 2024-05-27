@@ -111,7 +111,10 @@ class Recipe(models.Model):
 
 # Эта модель нужна, чтобы добавить inlines в админку
 class RecipeTag(models.Model):
-    """Промежуточная модель тегов и рецептов."""
+    """
+    Промежуточная модель тегов и рецептов.
+    Модель нужна для настройки Inline в админке.
+    """
 
     recipe = models.ForeignKey(
         Recipe,
