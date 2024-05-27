@@ -103,7 +103,6 @@ class RecipeGetSerialiser(serializers.ModelSerializer):
         many=True,
         source="recipeingredient"
     )
-
     is_favorited = serializers.SerializerMethodField()
     is_in_shopping_cart = serializers.SerializerMethodField()
 
@@ -350,7 +349,9 @@ class UserSubscriptionSerializer(serializers.ModelSerializer):
     """Сериализатор для подписки на пользователя."""
 
     user = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
-    subscription = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
+    subscription = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all()
+    )
 
     class Meta:
         model = UserSubscriptions
@@ -402,7 +403,8 @@ class RecipeToShoppingListSerializer(serializers.ModelSerializer):
         fields = "__all__"
         validators = [
             UniqueTogetherValidator(
-                queryset=UserShoppingList.objects.all(), fields=("user", "recipe")
+                queryset=UserShoppingList.objects.all(),
+                fields=("user", "recipe")
             )
         ]
 

@@ -38,7 +38,7 @@ class UserViewSet(UserViewSet):
         return super().get_permissions()
 
     @action(
-        ["delete", "put"],
+        ["put"],
         detail=False,
         url_path="me/avatar",
         permission_classes=[IsAuthenticated],
@@ -47,21 +47,21 @@ class UserViewSet(UserViewSet):
     def avatar(self, request):
         """Представление для взаимодействия пользователя со своим аватаром"""
         user = request.user
-        # Метод PUT вместо PATCH, так как фронт работает именно с PUT
-        if request.method == "PUT":
-            serializer = self.get_serializer(
-                user, data=request.data, context={"request": request}
-            )
-            serializer.is_valid(raise_exception=True)
-            serializer.save()
-            return Response(serializer.data)
-        # Иначе удаляем аватар
-        if user.avatar:
-            user.avatar.delete()
+        serializer = self.get_serializer(
+            user, data=request.data, context={"request": request}
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
+    @avatar.mapping.delete
+    def delete_avatar(self, request):
+        if request.user.avatar:
+            request.user.avatar.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(
-        ["post", "delete"],
+        ["post"],
         detail=True,
         permission_classes=(IsAuthenticated,)
     )
@@ -70,24 +70,27 @@ class UserViewSet(UserViewSet):
         Подписываем или удаляем подписку текущего пользователя
         на другого пользователя.
         """
-        user = self.request.user
+        user = request.user
         subscription = get_object_or_404(User, pk=id)
         data = {"user": user.id, "subscription": subscription.id}
-        if request.method == "POST":
-            serializer = UserSubscriptionSerializer(
-                data=data, context={"request": request}
-            )
-            if serializer.is_valid():
-                serializer.save()
-                return Response(
-                    serializer.data,
-                    status=status.HTTP_201_CREATED
-                )
+        serializer = UserSubscriptionSerializer(
+            data=data, context={"request": request}
+        )
+        if serializer.is_valid():
+            serializer.save()
             return Response(
-                serializer.errors,
-                status=status.HTTP_400_BAD_REQUEST
+                serializer.data,
+                status=status.HTTP_201_CREATED
             )
+        return Response(
+            serializer.errors,
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
+    @subscribe.mapping.delete
+    def delete_subscribe(self, request, id=None):
+        user = request.user
+        subscription = get_object_or_404(User, pk=id)
         subscription = UserSubscriptions.objects.filter(
             user=user, subscription=subscription
         ).first()
@@ -172,13 +175,23 @@ class RecipeViewSet(viewsets.ModelViewSet):
             model=UserFavorite
         )
 
-    @action(["post", "delete"], detail=True, permission_classes=(IsAuthenticated,))
+    @action(
+        ["post", "delete"],
+        detail=True,
+        permission_classes=(IsAuthenticated,)
+    )
     def shopping_cart(self, request, pk=None):
         if request.method == "POST":
             return add_recipe_to_list(
-                request=request, pk=pk, serializer=RecipeToShoppingListSerializer
+                request=request,
+                pk=pk,
+                serializer=RecipeToShoppingListSerializer
             )
-        return delete_recipe_from_list(request=request, pk=pk, model=UserShoppingList)
+        return delete_recipe_from_list(
+            request=request,
+            pk=pk,
+            model=UserShoppingList
+        )
 
     @action(["get"], detail=False, permission_classes=(IsAuthenticated,))
     def download_shopping_cart(self, request):

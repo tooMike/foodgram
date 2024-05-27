@@ -26,11 +26,11 @@ class FoodgramUser(AbstractUser):
     REQUIRED_FIELDS = ("first_name", "last_name", "username")
     USERNAME_FIELD = "email"
 
-    def get_absolute_url(self):
-        return reverse("users:profile")
-
     class Meta:
         ordering = ("first_name", "last_name")
+
+    def get_absolute_url(self):
+        return reverse("users:profile")
 
 
 class UserSubscriptions(models.Model):
@@ -49,17 +49,17 @@ class UserSubscriptions(models.Model):
         on_delete=models.CASCADE
     )
 
-    def clean(self):
-        """Проверяем, что пользователь не подписывается сам на себя."""
-        if self.user == self.subscription:
-            raise ValidationError("Нельзя подписаться на самого себя.")
-
     class Meta:
         constraints = [
             models.UniqueConstraint(
                 fields=("user", "subscription"), name="Unique subscription"
             )
         ]
+
+    def clean(self):
+        """Проверяем, что пользователь не подписывается сам на себя."""
+        if self.user == self.subscription:
+            raise ValidationError("Нельзя подписаться на самого себя.")
 
 
 class BaseUserList(models.Model):
