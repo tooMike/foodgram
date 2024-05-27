@@ -1,9 +1,11 @@
 from django.contrib.auth import get_user_model
-from django.core.validators import MinValueValidator
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 from recipes.constants import (MEASUREMENT_NAME_MAX_LENGHT, NAME_MAX_LENGHT,
-                               TAG_NAME_MAX_LENGHT, MeasurementUnit)
+                               SHORT_URL_CODE_MAX_LENGTH, TAG_NAME_MAX_LENGHT,
+                               MeasurementUnit)
+from recipes.short_code_generator import generate_short_code
 
 User = get_user_model()
 
@@ -23,6 +25,12 @@ class Ingredient(models.Model):
         verbose_name_plural = "Ингредиенты"
         default_related_name = "ingredients"
         ordering = ("name",)
+        constraints = [
+            models.UniqueConstraint(
+                fields=("name", "measurement_unit"),
+                name="name_measurement_unit_unique"
+            )
+        ]
 
     def __str__(self):
         return self.name
@@ -31,8 +39,12 @@ class Ingredient(models.Model):
 class Tag(models.Model):
     """Модель тегов."""
 
-    name = models.CharField("Название", max_length=TAG_NAME_MAX_LENGHT)
-    slug = models.SlugField("Slug")
+    name = models.CharField(
+        "Название",
+        max_length=TAG_NAME_MAX_LENGHT,
+        unique=True
+    )
+    slug = models.SlugField("Slug", unique=True)
 
     class Meta:
         verbose_name = "тег"
@@ -51,9 +63,14 @@ class Recipe(models.Model):
     image = models.ImageField("Картинка", upload_to="recipes/images")
     text = models.TextField("Описание")
     cooking_time = models.PositiveSmallIntegerField(
-        "Время приготовления", validators=(MinValueValidator(1),)
+        "Время приготовления",
+        validators=(MinValueValidator(1), MaxValueValidator(32766))
     )
     created_at = models.DateTimeField("Время добавления", auto_now_add=True)
+    short_url_code = models.CharField(
+        "Набор символов для короткой ссылки",
+        max_length=SHORT_URL_CODE_MAX_LENGTH
+    )
     author = models.ForeignKey(
         User,
         verbose_name="Автор",
@@ -81,7 +98,18 @@ class Recipe(models.Model):
     def __str__(self):
         return self.name
 
+    def save(self, *args, **kwargs):
+        if not self.short_url_code:
+            self.short_url_code = generate_short_code()
+            while True:
+                code = generate_short_code()
+                if not Recipe.objects.filter(short_url_code=code).exists():
+                    self.short_url_code = code
+                    break
+        return super().save(*args, **kwargs)
 
+
+# Эта модель нужна, чтобы добавить inlines в админку
 class RecipeTag(models.Model):
     """Промежуточная модель тегов и рецептов."""
 
@@ -108,7 +136,10 @@ class RecipeIngredient(models.Model):
         Ingredient, verbose_name="Ингредиент", on_delete=models.CASCADE
     )
     amount = models.PositiveSmallIntegerField(
-        "Количество", validators=(MinValueValidator(1),)
+        "Количество", validators=(
+            MinValueValidator(1),
+            MaxValueValidator(32766)
+        )
     )
 
     class Meta:

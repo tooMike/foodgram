@@ -1,17 +1,11 @@
 from rest_framework import permissions
 
 
-class IsCurrentUser(permissions.IsAuthenticated):
-    """Разрешаем доступ только владельцу."""
+class IsAuthorOrReadOnly(permissions.IsAuthenticatedOrReadOnly):
+    """Разрешаем доступ на редактирование только автору."""
 
     def has_object_permission(self, request, view, obj):
-        user = request.user
-        return obj.pk == user.pk
-
-
-class IsAuthor(permissions.IsAuthenticated):
-    """Разрешаем доступ только автору."""
-
-    def has_object_permission(self, request, view, obj):
-        user = request.user
-        return obj.author == user
+        return (
+            request.method in permissions.SAFE_METHODS
+            or obj.author == request.user
+        )

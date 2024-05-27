@@ -33,8 +33,12 @@ class RecipeTagInline(admin.TabularInline):
 class RecipeAdmin(admin.ModelAdmin):
     """Отображение рецептов."""
 
-    list_display = ("name", "author", "created_at", "count_favorites")
-    readonly_fields = ("created_at",)
+    list_display = (
+        "name",
+        "author",
+        # "created_at", "count_favorites"
+    )
+    readonly_fields = ("created_at", "short_url_code")
 
     inlines = (RecipeIngredientInline, RecipeTagInline)
     search_fields = (
@@ -45,15 +49,19 @@ class RecipeAdmin(admin.ModelAdmin):
         "tags__name",
     )
     list_filter = ('tags__name',)
+    fields = ("name", "text", "image", "created_at", "short_url_code", "author", "cooking_time")
+    
+    # @admin.display(
+    #     description="Добавление в избранное 2",
+    # )
+    # def count_favorites(self, obj):
+    #     return obj.user_favorites_recipes.count()
 
-    def count_favorites(self, obj):
-        return obj.user_favorites_recipes.count()
+    # count_favorites.short_description = "Добавлений в избранное"
 
-    count_favorites.short_description = "Добавлений в избранное"
-
-    def get_readonly_fields(self, request, obj=None):
-        readonly_fields = super().get_readonly_fields(request, obj)
-        return list(readonly_fields) + ["count_favorites"]
+    # def get_readonly_fields(self, request, obj=None):
+    #     readonly_fields = super().get_readonly_fields(request, obj)
+    #     return list(readonly_fields) + ["count_favorites"]
 
 
 admin.site.register(Ingredient, IngredientAdmin)

@@ -1,6 +1,16 @@
 from django.contrib import admin
+from django.contrib.auth import get_user_model
 from django.contrib.auth.admin import UserAdmin
+from django.contrib.auth.models import Group
 
-from users.models import FoodgramUser
+User = get_user_model()
 
-admin.site.register(FoodgramUser, UserAdmin)
+
+class FoodgramUserAdmin(UserAdmin):
+    """Отображение пользователей."""
+
+    search_fields = ("username", "email")
+
+
+admin.site.register(User, FoodgramUserAdmin)
+admin.site.unregister(Group)
