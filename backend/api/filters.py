@@ -8,11 +8,13 @@ from recipes.models import Recipe, Tag
 
 class IngredientSearchFilter(SearchFilter):
     """Фильтр для ингредиентов рецепта."""
+
     search_param = "name"
 
 
 class RecipeFilter(filters.FilterSet):
     """Фильтр для рецептов."""
+
     author = CharFilter(field_name="author")
     tags = ModelMultipleChoiceFilter(
         field_name="tags__slug",

@@ -153,7 +153,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
     def get_link(self, request, pk=None):
         """Формируем короткую ссылку на рецепт."""
         short_url_code = Recipe.objects.get(pk=pk).short_url_code
-        short_url = request.build_absolute_uri(f"/s/{short_url_code}")
+        short_url = request.build_absolute_uri(f"/s/{short_url_code}/")
         return Response(
             {"short-link": short_url},
             status=status.HTTP_200_OK,
