@@ -5,9 +5,10 @@ from drf_extra_fields.fields import Base64ImageField
 from rest_framework import serializers
 from rest_framework.validators import UniqueTogetherValidator
 
-from api.recipes_utils import add_ingredients_to_recipeingredient
-from recipes.models import Ingredient, Recipe, RecipeIngredient, Tag
-from users.models import UserFavorite, UserShoppingList, UserSubscriptions
+# from api.recipes_utils import add_ingredients_to_recipeingredient
+from recipes.models import (Ingredient, Recipe, RecipeIngredient, Tag,
+                            UserFavorite, UserShoppingList)
+from users.models import UserSubscriptions
 
 User = get_user_model()
 
@@ -243,6 +244,22 @@ class RecipePostSerialiser(serializers.ModelSerializer):
             )
         return value
 
+    @staticmethod
+    def add_ingredients_to_recipeingredient(recipe, ingredients):
+        """
+        Метод для добавления ингредиентов к рецептам в промежуточную модель.
+        """
+        RecipeIngredient.objects.bulk_create(
+            [
+                RecipeIngredient(
+                    ingredient=ingredient["id"],
+                    amount=ingredient["amount"],
+                    recipe=recipe,
+                )
+                for ingredient in ingredients
+            ]
+        )
+
     @transaction.atomic
     def create(self, validated_data):
         ingredients = validated_data.pop("recipeingredient")
@@ -253,7 +270,7 @@ class RecipePostSerialiser(serializers.ModelSerializer):
         # Добавляем теги в промежуточную модель
         recipe.tags.set(tags)
         # Добавляем ингридиенты в промежуточную модель
-        add_ingredients_to_recipeingredient(
+        self.add_ingredients_to_recipeingredient(
             recipe=recipe,
             ingredients=ingredients
         )
@@ -269,7 +286,7 @@ class RecipePostSerialiser(serializers.ModelSerializer):
 
         # Перезаписывам ингредиенты
         instance.ingredients.clear()
-        add_ingredients_to_recipeingredient(
+        self.add_ingredients_to_recipeingredient(
             recipe=instance,
             ingredients=new_ingredients
         )
@@ -348,11 +365,6 @@ class SubscriptionsSerializer(UserSerializer):
 class UserSubscriptionSerializer(serializers.ModelSerializer):
     """Сериализатор для подписки на пользователя."""
 
-    user = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
-    subscription = serializers.PrimaryKeyRelatedField(
-        queryset=User.objects.all()
-    )
-
     class Meta:
         model = UserSubscriptions
         fields = "__all__"
@@ -371,14 +383,14 @@ class UserSubscriptionSerializer(serializers.ModelSerializer):
         return super().validate(attrs)
 
     def to_representation(self, instance):
-        subscription = User.objects.get(id=instance.subscription.id)
-        return SubscriptionsSerializer(subscription, context=self.context).data
+        return SubscriptionsSerializer(
+            instance.subscription,
+            context=self.context
+        ).data
 
 
 class RecipeToFavoriteSerializer(serializers.ModelSerializer):
-
-    user = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
-    recipe = serializers.PrimaryKeyRelatedField(queryset=Recipe.objects.all())
+    """Сериализатор для добавление рецептов в избранное."""
 
     class Meta:
         model = UserFavorite
@@ -394,9 +406,7 @@ class RecipeToFavoriteSerializer(serializers.ModelSerializer):
 
 
 class RecipeToShoppingListSerializer(serializers.ModelSerializer):
-
-    user = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
-    recipe = serializers.PrimaryKeyRelatedField(queryset=Recipe.objects.all())
+    """Сериализатор для добавление рецептов в список покупок."""
 
     class Meta:
         model = UserShoppingList

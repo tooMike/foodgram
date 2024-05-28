@@ -1,6 +1,7 @@
 from django.contrib.auth.models import AbstractUser
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models import F, Q
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 
@@ -53,6 +54,10 @@ class UserSubscriptions(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=("user", "subscription"), name="Unique subscription"
+            ),
+            models.CheckConstraint(
+                check=~Q(user=F('subscription')),
+                name='prevent_self_subscription'
             )
         ]
 
@@ -60,40 +65,3 @@ class UserSubscriptions(models.Model):
         """Проверяем, что пользователь не подписывается сам на себя."""
         if self.user == self.subscription:
             raise ValidationError("Нельзя подписаться на самого себя.")
-
-
-class BaseUserList(models.Model):
-    """Базовая модель для списков рецептов и пользователя."""
-
-    user = models.ForeignKey(
-        FoodgramUser, verbose_name="Пользователь", on_delete=models.CASCADE
-    )
-    recipe = models.ForeignKey(
-        'recipes.Recipe',
-        verbose_name="Рецепт",
-        on_delete=models.CASCADE)
-
-    class Meta:
-        abstract = True
-
-
-class UserFavorite(BaseUserList):
-    """Модель для списка избранного пользователя."""
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=("user", "recipe"), name="userfavorite_unique"
-            )
-        ]
-
-
-class UserShoppingList(BaseUserList):
-    """Модель для списка покупок пользователя."""
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=("user", "recipe"), name="usershoppinglist_unique"
-            )
-        ]

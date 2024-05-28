@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db.models import Sum
 from django.shortcuts import get_object_or_404
@@ -21,8 +22,9 @@ from api.serializers import (AvatarSerializer, IngredientSerialiser,
                              RecipeToShoppingListSerializer,
                              SubscriptionsSerializer, TagSerialiser,
                              UserSubscriptionSerializer)
-from recipes.models import Ingredient, Recipe, RecipeIngredient, Tag
-from users.models import UserFavorite, UserShoppingList, UserSubscriptions
+from recipes.models import (Ingredient, Recipe, RecipeIngredient, Tag,
+                            UserFavorite, UserShoppingList)
+from users.models import UserSubscriptions
 
 User = get_user_model()
 
@@ -76,26 +78,16 @@ class UserViewSet(UserViewSet):
         serializer = UserSubscriptionSerializer(
             data=data, context={"request": request}
         )
-        if serializer.is_valid():
-            serializer.save()
-            return Response(
-                serializer.data,
-                status=status.HTTP_201_CREATED
-            )
-        return Response(
-            serializer.errors,
-            status=status.HTTP_400_BAD_REQUEST
-        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     @subscribe.mapping.delete
     def delete_subscribe(self, request, id=None):
-        user = request.user
-        subscription = get_object_or_404(User, pk=id)
-        subscription = UserSubscriptions.objects.filter(
-            user=user, subscription=subscription
-        ).first()
-        if subscription:
-            subscription.delete()
+        deleted_subscriptions = UserSubscriptions.objects.filter(
+            user=request.user, subscription=get_object_or_404(User, pk=id)
+        ).delete()
+        if deleted_subscriptions[0]:
             return Response(status=status.HTTP_204_NO_CONTENT)
         return Response(
             {"errors": "Вы не были подписаны на этого пользователя"},
@@ -153,7 +145,9 @@ class RecipeViewSet(viewsets.ModelViewSet):
     def get_link(self, request, pk=None):
         """Формируем короткую ссылку на рецепт."""
         short_url_code = Recipe.objects.get(pk=pk).short_url_code
-        short_url = request.build_absolute_uri(f"/s/{short_url_code}/")
+        short_url = request.build_absolute_uri(
+            f"/{settings.SHORT_LINK_URL_PATH}/{short_url_code}/"
+        )
         return Response(
             {"short-link": short_url},
             status=status.HTTP_200_OK,

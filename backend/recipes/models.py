@@ -2,7 +2,8 @@ from django.contrib.auth import get_user_model
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
-from recipes.constants import (MEASUREMENT_NAME_MAX_LENGHT, NAME_MAX_LENGHT,
+from recipes.constants import (MAX_AMOUNT, MEASUREMENT_NAME_MAX_LENGHT,
+                               MIN_AMOUNT, NAME_MAX_LENGHT,
                                SHORT_URL_CODE_MAX_LENGTH, TAG_NAME_MAX_LENGHT,
                                MeasurementUnit)
 from recipes.short_code_generator import generate_short_code
@@ -64,7 +65,10 @@ class Recipe(models.Model):
     text = models.TextField("Описание")
     cooking_time = models.PositiveSmallIntegerField(
         "Время приготовления",
-        validators=(MinValueValidator(1), MaxValueValidator(32766))
+        validators=(
+            MinValueValidator(MIN_AMOUNT),
+            MaxValueValidator(MAX_AMOUNT)
+        )
     )
     created_at = models.DateTimeField("Время добавления", auto_now_add=True)
     short_url_code = models.CharField(
@@ -101,11 +105,6 @@ class Recipe(models.Model):
     def save(self, *args, **kwargs):
         if not self.short_url_code:
             self.short_url_code = generate_short_code()
-            while True:
-                code = generate_short_code()
-                if not Recipe.objects.filter(short_url_code=code).exists():
-                    self.short_url_code = code
-                    break
         return super().save(*args, **kwargs)
 
 
@@ -140,10 +139,51 @@ class RecipeIngredient(models.Model):
     )
     amount = models.PositiveSmallIntegerField(
         "Количество", validators=(
-            MinValueValidator(1),
-            MaxValueValidator(32766)
+            MinValueValidator(MIN_AMOUNT),
+            MaxValueValidator(MAX_AMOUNT)
         )
     )
 
     class Meta:
         default_related_name = "recipeingredient"
+
+
+class BaseUserList(models.Model):
+    """Базовая модель для списков рецептов и пользователя."""
+
+    user = models.ForeignKey(
+        User,
+        verbose_name="Пользователь",
+        on_delete=models.CASCADE
+    )
+    recipe = models.ForeignKey(
+        Recipe,
+        verbose_name="Рецепт",
+        on_delete=models.CASCADE)
+
+    class Meta:
+        abstract = True
+
+
+class UserFavorite(BaseUserList):
+    """Модель для списка избранного пользователя."""
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=("user", "recipe"), name="userfavorite_unique"
+            )
+        ]
+        default_related_name = 'userfavorite'
+
+
+class UserShoppingList(BaseUserList):
+    """Модель для списка покупок пользователя."""
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=("user", "recipe"), name="usershoppinglist_unique"
+            ),
+        ]
+        default_related_name = 'usershoppinglist'

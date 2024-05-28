@@ -58,7 +58,7 @@ class RecipeAdmin(admin.ModelAdmin):
 
     @admin.display(description="Добавлений в избранное")
     def count_favorites(self, obj):
-        return obj.userfavorite_set.count()
+        return obj.userfavorite.count()
 
     def get_readonly_fields(self, request, obj=None):
         readonly_fields = super().get_readonly_fields(request, obj)
