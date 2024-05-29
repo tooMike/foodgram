@@ -201,7 +201,6 @@ class RecipePostSerialiser(serializers.ModelSerializer):
             required_fields = (
                 "recipeingredient",
                 "tags",
-                "image",
                 "name",
                 "text",
                 "cooking_time",

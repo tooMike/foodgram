@@ -28,7 +28,7 @@ class FoodgramUser(AbstractUser):
     USERNAME_FIELD = "email"
 
     class Meta:
-        ordering = ("first_name", "last_name")
+        ordering = ("username",)
 
     def get_absolute_url(self):
         return reverse("users:profile")
