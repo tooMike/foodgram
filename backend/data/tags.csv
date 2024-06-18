@@ -1,0 +1,51 @@
+name,slug
+Вегетарианский,vegetarian
+Веганский,vegan
+Безглютеновый,gluten-free
+Безлактозный,lactose-free
+Кето,keto
+Палео,paleo
+Диетический,diet
+Постный,fasting
+Молочные, dairy
+Мясные,meat
+Рыбные,fish
+Морепродукты,seafood
+Птица,poultry
+Супы,soups
+Салаты,salads
+Закуски,appetizers
+Основные блюда,main-courses
+Десерты,desserts
+Напитки,drinks
+Выпечка,baking
+Сладости,sweets
+Пасты,pasta
+Рис, rice
+Картофель,potato
+Грибы,mushrooms
+Овощи,vegetables
+Фрукты,fruits
+Завтраки,breakfasts
+Обеды,lunches
+Ужины,dinners
+Летние блюда,summer-dishes
+Зимние блюда,winter-dishes
+Осенние блюда,autumn-dishes
+Весенние блюда,spring-dishes
+Праздничные блюда,holiday-dishes
+Быстрые рецепты,quick-recipes
+Мультиварка,multicooker
+Гриль,grill
+Фритюр,fryer
+Запеканка,casserole
+Пицца,pizza
+Суши,sushi
+Торты,cakes
+Булочки,buns
+Пироги,pies
+Пирожные,pastries
+Блины,pancakes
+Оладьи,fritters
+Чаи,tea
+Кофе,coffee
