@@ -65,4 +65,6 @@ class Command(BaseCommand):
                 # Распаковываем словарь и создаем объект модели
                 model.objects.create(**data)
 
-        self.stdout.write(self.style.SUCCESS(f"Successfully imported data {model}"))
+        self.stdout.write(
+            self.style.SUCCESS(f"Successfully imported data {model}")
+        )
