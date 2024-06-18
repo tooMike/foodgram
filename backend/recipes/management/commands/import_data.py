@@ -18,7 +18,7 @@ triples = [
 avatar_src_file = "data/default_avatar.png"
 recipe_src_file = "data/default_recipe_image.png"
 avatar_dest_directory = "media/users"
-recipe_dest_directory = "media/recipes"
+recipe_dest_directory = "media/recipes/images"
 
 
 class Command(BaseCommand):
