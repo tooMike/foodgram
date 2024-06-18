@@ -42,7 +42,7 @@ name,image,text,cooking_time,author_id
 Фриттата,recipes/images/default_imagefpngpg,"Итальянская омлет с овощами.",25,1
 Печенье с шоколадом,recipes/images/default_imagecpngolate_c.jpg,"Печенье с кусочками шоколада.",20,2
 Гаспачо,recipes/images/default_imagegpngpg,"Холодный испанский суп из томатов.",15,3
-Кебаб,recipes/images.default_imagejpng"Кебаб из баранины с луком.",45,4
+Кебаб,recipes/images.default_imagejpng",Кебаб из баранины с луком.",45,4
 Банановый хлеб,recipes/images/default_imagebpngna.jpg,"Банановый хлеб с орехами.",60,5
 Тирамису,recipes/images/default_imagetpngpg,"Итальянский десерт с маскарпоне и кофе.",30,6
 Салат Оливье,recipes/images/default_imageopngg,"Традиционный русский салат с колбасой.",40,7
