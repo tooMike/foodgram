@@ -6,6 +6,8 @@
 
 Документация к API достпуна по адресу: https://jtt365.com/api/docs/
 
+В проекте настроен CI/CD с использованием GitHub Actions. Запуск происходит при push в ветку releases
+
 # Авторы проекта
 
 [Mikhail](https://github.com/tooMike)
