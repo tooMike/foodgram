@@ -66,10 +66,6 @@ docker compose exec backend python manage.py import_data
 http://127.0.0.1:10000/api/docs/
 ```
 
-# Основные технические требования
-
-Python==3.9
-
 # Примеры запросов к API
 
 ### Регистрация нового пользователя
